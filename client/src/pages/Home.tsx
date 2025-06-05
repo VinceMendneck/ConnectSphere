@@ -1,37 +1,52 @@
 // client/src/pages/Home.tsx
 import { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom'; // Adiciona useNavigate
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { AuthContext } from '../context/AuthContextType';
+import { AuthContext } from '../context/AuthContextType'; // Corrige para AuthContext
 import { theme } from '../styles/theme';
-import type { Post } from '../types';
+import { type Post } from '../types';
+import api from '../services/mockApi';
 
 function Home() {
   const authContext = useContext(AuthContext);
   if (!authContext) {
     throw new Error('AuthContext must be used within an AuthProvider');
   }
-  const { user } = authContext;
+  const { user, logout } = authContext;
   const [posts, setPosts] = useState<Post[]>([]);
   const [content, setContent] = useState<string>('');
-  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [darkMode, setDarkMode] = useState<boolean>(
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
+  const navigate = useNavigate(); // Define navigate
 
-  // Carrega posts na inicialização
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await axios.get<Post[]>('http://localhost:3000/posts');
+        const res = await api.get('/posts');
         setPosts(res.data);
-      } catch (_) { // Substitui 'error' por '_'
+      } catch (error) {
         toast.error('Erro ao carregar posts');
+        console.error('Fetch posts error:', error);
       }
     };
     fetchPosts();
-  }, []);
 
-  // Função para criar um novo post
+    // Sincroniza tema inicial
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.border = '2px solid red'; // Depuração
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.style.border = '2px solid green'; // Depuração
+    }
+
+    return () => {
+      document.documentElement.style.border = ''; // Limpa depuração
+    };
+  }, [darkMode]);
+
   const handlePost = async () => {
     if (!content.trim()) {
       toast.error('O post não pode estar vazio');
@@ -43,30 +58,34 @@ function Home() {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        'http://localhost:3000/posts',
-        { content },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.post('/posts', { content });
       setContent('');
       toast.success('Post criado com sucesso!');
-      const res = await axios.get<Post[]>('http://localhost:3000/posts');
+      const res = await api.get('/posts');
       setPosts(res.data);
-    } catch (_) { // Substitui 'error' por '_'
+    } catch (error) {
       toast.error('Erro ao criar post');
+      console.error('Post error:', error);
     }
   };
 
-  // Função para alternar tema claro/escuro
-  const toggleTheme = () => {
-    setDarkMode(!darkMode);
-    document.documentElement.classList.toggle('dark');
+  const handleLogout = () => {
+    logout();
+    toast.success('Logout realizado com sucesso!');
+    navigate('/login');
   };
 
-  // Função para renderizar hashtags clicáveis
+  const toggleTheme = () => {
+    setDarkMode((prev) => {
+      const newMode = !prev;
+      document.documentElement.classList.toggle('dark', newMode);
+      console.log('Tema alterado:', newMode ? 'Escuro (cinza)' : 'Claro (branco)');
+      return newMode;
+    });
+  };
+
   const renderContent = (text: string) => {
-    const parts = text.split(/(\\#[\w]+)/);
+    const parts = text.split(/(#[\w]+)/);
     return parts.map((part, index) =>
       part.startsWith('#') ? (
         <Link
@@ -87,9 +106,16 @@ function Home() {
       <ToastContainer position="top-right" autoClose={3000} />
       <div className={theme.home.header}>
         <h1 className={theme.home.title}>ConnectSphere</h1>
-        <button onClick={toggleTheme} className={theme.home.themeToggleButton}>
-          {darkMode ? 'Modo Claro' : 'Modo Escuro'}
-        </button>
+        <div className="flex space-x-2">
+          <button onClick={toggleTheme} className={theme.home.themeToggleButton}>
+            {darkMode ? 'Modo Claro' : 'Modo Escuro'}
+          </button>
+          {user && (
+            <button onClick={handleLogout} className={theme.home.themeToggleButton}>
+              Sair
+            </button>
+          )}
+        </div>
       </div>
       {user ? (
         <div className={theme.home.postFormContainer}>

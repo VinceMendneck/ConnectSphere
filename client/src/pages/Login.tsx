@@ -1,7 +1,8 @@
 // client/src/pages/Login.tsx
-import { useContext, useState } from 'react';
+import { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { AuthContext } from '../context/AuthContextType';
 import { theme } from '../styles/theme';
 
@@ -15,13 +16,10 @@ function Login() {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!email.trim() || !password.trim()) {
-      toast.error('Todos os campos são obrigatórios');
-      return;
-    }
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      toast.error('Email inválido');
+      toast.error('Preencha todos os campos');
       return;
     }
 
@@ -29,33 +27,40 @@ function Login() {
       await login(email, password);
       toast.success('Login realizado com sucesso!');
       navigate('/');
-    } catch (_) {
-      toast.error('Erro ao fazer login. Verifique suas credenciais.');
+    } catch (error) {
+      toast.error('Erro ao fazer login');
+      console.error('Erro de login:', error);
     }
   };
 
   return (
-    <div className={theme.auth.container}>
-      <h2 className={theme.auth.title}>Login</h2>
-      <input
-        className={theme.auth.input}
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-        type="email"
-      />
-      <input
-        className={theme.auth.input}
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Senha"
-      />
-      <button onClick={handleSubmit} className={theme.auth.button}>
-        Entrar
-      </button>
+    <div className="container mx-auto p-6 bg-white dark:bg-[#1a202c] min-h-screen flex flex-col items-center justify-center">
+      <ToastContainer position="top-right" autoClose={3000} />
+      <h2 className={theme.auth.title}>Entrar no ConnectSphere</h2>
+      <form onSubmit={handleLogin} className="w-full max-w-md">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={theme.auth.input}
+        />
+        <input
+          type="password"
+          placeholder="Senha"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className={theme.auth.input}
+        />
+        <button type="submit" className={theme.auth.button}>
+          Entrar
+        </button>
+      </form>
       <p className={theme.auth.noUserMessage}>
-        Não tem uma conta? <Link to="/register" className={theme.auth.link}>Registre-se</Link>
+        Não tem uma conta?{' '}
+        <Link to="/register" className={theme.auth.link}>
+          Registre-se
+        </Link>
       </p>
     </div>
   );
