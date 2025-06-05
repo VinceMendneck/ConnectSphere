@@ -1,32 +1,31 @@
+// client/src/context/AuthContext.tsx
 import { useState, type ReactNode } from 'react';
-import axios from 'axios';
 import { AuthContext } from './AuthContextType';
-
-interface User {
-  id: number;
-}
+import { type User } from '../types';
+import api from '../services/mockApi';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
   const login = async (email: string, password: string) => {
-    const { data } = await axios.post<{ token: string; userId: number }>(
-      'http://localhost:3000/login',
-      { email, password }
-    );
+    const response = await api.post('/login', { email, password });
+    const data = response.data as { token: string; userId: number };
     localStorage.setItem('token', data.token);
-    setUser({ id: data.userId });
+    setUser({ id: data.userId, username: 'user_teste' });
   };
 
   const register = async (email: string, password: string, username: string) => {
-    await axios.post('http://localhost:3000/register', { email, password, username });
+    await api.post('/register', { email, password, username });
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register }}>
+    <AuthContext.Provider value={{ user, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-export { AuthContext };

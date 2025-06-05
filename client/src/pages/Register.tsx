@@ -1,7 +1,8 @@
 // client/src/pages/Register.tsx
-import { useContext, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Corrigido: Adicionei Link
-import { toast } from 'react-toastify';
+import { useState, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { AuthContext } from '../context/AuthContextType';
 import { theme } from '../styles/theme';
 
@@ -16,58 +17,58 @@ function Register() {
   const [username, setUsername] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = async () => {
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!email.trim() || !password.trim() || !username.trim()) {
-      toast.error('Todos os campos são obrigatórios');
-      return;
-    }
-    if (password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
-      return;
-    }
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      toast.error('Email inválido');
+      toast.error('Preencha todos os campos');
       return;
     }
 
     try {
       await register(email, password, username);
-      toast.success('Registro realizado com sucesso! Faça login para continuar.');
+      toast.success('Registro realizado com sucesso!');
       navigate('/login');
-    } catch (_) {
-      toast.error('Erro ao registrar. Tente novamente.');
+    } catch (error) {
+      toast.error('Erro ao registrar');
+      console.error('Erro de registro:', error);
     }
   };
 
   return (
-    <div className={theme.auth.container}>
-      <h2 className={theme.auth.title}>Registrar</h2>
-      <input
-        className={theme.auth.input}
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-        type="email"
-      />
-      <input
-        className={theme.auth.input}
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        placeholder="Nome de usuário"
-        type="text"
-      />
-      <input
-        className={theme.auth.input}
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Senha"
-      />
-      <button onClick={handleSubmit} className={theme.auth.button}>
-        Registrar
-      </button>
+    <div className="container mx-auto p-6 bg-white dark:bg-[#1a202c] min-h-screen flex flex-col items-center justify-center">
+      <ToastContainer position="top-right" autoClose={3000} />
+      <h2 className={theme.auth.title}>Registrar no ConnectSphere</h2>
+      <form onSubmit={handleRegister} className="w-full max-w-md">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={theme.auth.input}
+        />
+        <input
+          type="text"
+          placeholder="Nome de usuário"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className={theme.auth.input}
+        />
+        <input
+          type="password"
+          placeholder="Senha"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className={theme.auth.input}
+        />
+        <button type="submit" className={theme.auth.button}>
+          Registrar
+        </button>
+      </form>
       <p className={theme.auth.noUserMessage}>
-        Já tem uma conta? <Link to="/login" className={theme.auth.link}>Faça login</Link>
+        Já tem uma conta?{' '}
+        <Link to="/login" className={theme.auth.link}>
+          Entre
+        </Link>
       </p>
     </div>
   );
