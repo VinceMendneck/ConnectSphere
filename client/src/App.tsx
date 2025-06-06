@@ -11,9 +11,9 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="flex min-h-screen bg-[#ffffff] dark:bg-[#4b5563]">
+        <div className="flex min-h-screen">
           <Sidebar />
-          <main className="flex-1 w-full bg-[#ffffff] dark:bg-[#4b5563]">
+          <main className="flex-1 w-full">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />

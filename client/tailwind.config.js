@@ -6,5 +6,5 @@ module.exports = {
     extend: {},
   },
   plugins: [],
-  darkMode: 'class', // Garante suporte a dark:
+  darkMode: 'class',
 };
