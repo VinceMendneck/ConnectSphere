@@ -1,12 +1,10 @@
 // client/src/pages/Home.tsx
-import { useState, useEffect, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // Adiciona useNavigate
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { AuthContext } from '../context/AuthContextType'; // Corrige para AuthContext
+import { useContext, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { AuthContext } from '../context/AuthContextType';
 import { theme } from '../styles/theme';
-import { type Post } from '../types';
-import api from '../services/mockApi';
+import type { Post } from '../types/index';
 
 function Home() {
   const authContext = useContext(AuthContext);
@@ -14,59 +12,45 @@ function Home() {
     throw new Error('AuthContext must be used within an AuthProvider');
   }
   const { user, logout } = authContext;
+  const navigate = useNavigate();
+  const [content, setContent] = useState('');
   const [posts, setPosts] = useState<Post[]>([]);
-  const [content, setContent] = useState<string>('');
-  const [darkMode, setDarkMode] = useState<boolean>(
-    window.matchMedia('(prefers-color-scheme: dark)').matches
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(
+    document.documentElement.classList.contains('dark-theme')
   );
-  const navigate = useNavigate(); // Define navigate
+  const MAX_POST_LENGTH = 280;
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const res = await api.get('/posts');
-        setPosts(res.data);
-      } catch (error) {
-        toast.error('Erro ao carregar posts');
-        console.error('Fetch posts error:', error);
-      }
-    };
-    fetchPosts();
+    const observer = new MutationObserver(() => {
+      setIsDarkMode(document.documentElement.classList.contains('dark-theme'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
-    // Sincroniza tema inicial
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.style.border = '2px solid red'; // Depuração
+  const toggleTheme = () => {
+    const htmlElement = document.documentElement;
+    if (isDarkMode) {
+      htmlElement.classList.remove('dark-theme');
+      htmlElement.classList.add('light-theme');
     } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.style.border = '2px solid green'; // Depuração
+      htmlElement.classList.remove('light-theme');
+      htmlElement.classList.add('dark-theme');
     }
+    setIsDarkMode(!isDarkMode);
+  };
 
-    return () => {
-      document.documentElement.style.border = ''; // Limpa depuração
+  const handlePost = () => {
+    if (!content.trim()) return;
+    const newPost: Post = {
+      id: posts.length + 1,
+      content,
+      createdAt: new Date().toISOString(),
+      user: { id: user ? parseInt(user.username, 10) || 1 : 1, username: user?.username || 'Anônimo' },
     };
-  }, [darkMode]);
-
-  const handlePost = async () => {
-    if (!content.trim()) {
-      toast.error('O post não pode estar vazio');
-      return;
-    }
-    if (content.length > 280) {
-      toast.error('O post deve ter no máximo 280 caracteres');
-      return;
-    }
-
-    try {
-      await api.post('/posts', { content });
-      setContent('');
-      toast.success('Post criado com sucesso!');
-      const res = await api.get('/posts');
-      setPosts(res.data);
-    } catch (error) {
-      toast.error('Erro ao criar post');
-      console.error('Post error:', error);
-    }
+    setPosts([newPost, ...posts]);
+    setContent('');
+    toast.success('Post criado com sucesso!');
   };
 
   const handleLogout = () => {
@@ -75,65 +59,39 @@ function Home() {
     navigate('/login');
   };
 
-  const toggleTheme = () => {
-    setDarkMode((prev) => {
-      const newMode = !prev;
-      document.documentElement.classList.toggle('dark', newMode);
-      console.log('Tema alterado:', newMode ? 'Escuro (cinza)' : 'Claro (branco)');
-      return newMode;
-    });
-  };
-
-  const renderContent = (text: string) => {
-    const parts = text.split(/(#[\w]+)/);
-    return parts.map((part, index) =>
-      part.startsWith('#') ? (
-        <Link
-          key={index}
-          to={`/hashtag/${part.slice(1)}`}
-          className={theme.home.hashtagLink}
-        >
-          {part}
-        </Link>
-      ) : (
-        <span key={index}>{part}</span>
-      )
-    );
-  };
-
   return (
-    <div className={theme.home.container}>
-      <ToastContainer position="top-right" autoClose={3000} />
-      <div className={theme.home.header}>
-        <h1 className={theme.home.title}>ConnectSphere</h1>
+    <div className={isDarkMode ? theme.home.containerDark : theme.home.container}>
+      <header className={theme.home.header}>
+        <h1 className={isDarkMode ? theme.home.titleDark : theme.home.title}>ConnectSphere</h1>
         <div className="flex space-x-2">
-          <button onClick={toggleTheme} className={theme.home.themeToggleButton}>
-            {darkMode ? 'Modo Claro' : 'Modo Escuro'}
+          <button
+            onClick={toggleTheme}
+            className={isDarkMode ? theme.home.themeToggleButtonDark : theme.home.themeToggleButton}
+          >
+            {isDarkMode ? 'Modo Claro' : 'Modo Escuro'}
           </button>
           {user && (
-            <button onClick={handleLogout} className={theme.home.themeToggleButton}>
+            <button onClick={handleLogout} className={isDarkMode ? 'primary' : 'primary'}>
               Sair
             </button>
           )}
         </div>
-      </div>
+      </header>
       {user ? (
-        <div className={theme.home.postFormContainer}>
+        <div className={isDarkMode ? theme.home.postFormContainerDark : theme.home.postFormContainer}>
           <textarea
-            className={theme.home.textarea}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => setContent(e.target.value.slice(0, MAX_POST_LENGTH))}
             placeholder="No que você está pensando?"
-            maxLength={280}
-            rows={4}
+            className={isDarkMode ? theme.home.textareaDark : theme.home.textarea}
           />
           <div className={theme.home.postFormFooter}>
-            <span className={theme.home.charCount}>
-              {content.length}/280
+            <span className={isDarkMode ? theme.home.charCountDark : theme.home.charCount}>
+              {content.length}/{MAX_POST_LENGTH}
             </span>
             <button
               onClick={handlePost}
-              className={theme.home.postButton}
+              className={isDarkMode ? theme.home.postButtonDark : theme.home.postButton}
               disabled={!content.trim()}
             >
               Postar
@@ -141,21 +99,29 @@ function Home() {
           </div>
         </div>
       ) : (
-        <p className={theme.home.noUserMessage}>
-          Faça <Link to="/login" className={theme.home.link}>login</Link> para postar.
+        <p className={isDarkMode ? theme.home.noUserMessageDark : theme.home.noUserMessage}>
+          Faça <Link to="/login" className={theme.home.link}>login</Link> ou{' '}
+          <Link to="/register" className={theme.home.link}>registre-se</Link> para postar.
         </p>
       )}
       <div className={theme.home.postList}>
         {posts.length === 0 ? (
-          <p className={theme.home.emptyPostMessage}>Nenhum post disponível.</p>
+          <p className={isDarkMode ? theme.home.emptyPostMessageDark : theme.home.emptyPostMessage}>
+            Nenhum post disponível.
+          </p>
         ) : (
           posts.map((post) => (
-            <div key={post.id} className={theme.home.postContainer}>
-              <p className={theme.home.postContent}>{renderContent(post.content)}</p>
-              <p className={theme.home.postMeta}>
-                Por {post.user?.username || 'Anônimo'} em{' '}
-                {new Date(post.createdAt).toLocaleString('pt-BR')}
+            <div
+              key={post.id}
+              className={isDarkMode ? theme.home.postContainerDark : theme.home.postContainer}
+            >
+              <p className={isDarkMode ? theme.home.postContentDark : theme.home.postContent}>
+                {post.content}
               </p>
+              <div className={isDarkMode ? theme.home.postMetaDark : theme.home.postMeta}>
+                <span>Por {post.user.username}</span> ·{' '}
+                <span>{new Date(post.createdAt).toLocaleString()}</span>
+              </div>
             </div>
           ))
         )}

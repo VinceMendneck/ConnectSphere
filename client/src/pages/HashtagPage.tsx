@@ -1,28 +1,27 @@
 // client/src/pages/HashtagPage.tsx
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import api from '../services/mockApi';
+import { toast } from 'react-toastify';
 import { theme } from '../styles/theme';
 import { type Post } from '../types';
+import api from '../services/mockApi';
 
 function HashtagPage() {
   const { tag } = useParams<{ tag: string }>();
   const [posts, setPosts] = useState<Post[]>([]);
+  const isDarkMode = document.documentElement.classList.contains('dark-theme');
 
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await api.get(`/hashtags/${tag}/posts`);
+        const res = await api.get(`/posts?hashtag=${tag}`);
         setPosts(res.data);
-      } catch (_) {
+      } catch (error) {
         toast.error('Erro ao carregar posts');
+        console.error('Fetch hashtag posts error:', error);
       }
     };
-    if (tag) {
-      fetchPosts();
-    }
+    fetchPosts();
   }, [tag]);
 
   const renderContent = (text: string) => {
@@ -43,17 +42,18 @@ function HashtagPage() {
   };
 
   return (
-    <div className={theme.hashtag.container}>
-      <ToastContainer position="top-right" autoClose={3000} />
-      <h2 className={theme.hashtag.title}>Posts com #{tag}</h2>
+    <div className={isDarkMode ? theme.hashtag.containerDark : theme.hashtag.container}>
+      <h2 className={isDarkMode ? theme.hashtag.titleDark : theme.hashtag.title}>#{tag}</h2>
       <div className={theme.hashtag.postList}>
         {posts.length === 0 ? (
-          <p className={theme.hashtag.emptyPostMessage}>Nenhum post encontrado para #{tag}.</p>
+          <p className={isDarkMode ? theme.hashtag.emptyPostMessageDark : theme.hashtag.emptyPostMessage}>
+            Nenhum post encontrado para #{tag}.
+          </p>
         ) : (
           posts.map((post) => (
-            <div key={post.id} className={theme.hashtag.postContainer}>
-              <p className={theme.hashtag.postContent}>{renderContent(post.content)}</p>
-              <p className={theme.hashtag.postMeta}>
+            <div key={post.id} className={isDarkMode ? theme.hashtag.postContainerDark : theme.hashtag.postContainer}>
+              <p className={isDarkMode ? theme.hashtag.postContentDark : theme.hashtag.postContent}>{renderContent(post.content)}</p>
+              <p className={isDarkMode ? theme.hashtag.postMetaDark : theme.hashtag.postMeta}>
                 Por {post.user?.username || 'Anônimo'} em{' '}
                 {new Date(post.createdAt).toLocaleString('pt-BR')}
               </p>

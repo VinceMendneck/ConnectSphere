@@ -1,35 +1,66 @@
 // client/src/components/Sidebar.tsx
-import { useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useContext, useState, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContextType';
 import { theme } from '../styles/theme';
+import { toast } from 'react-toastify';
 
 function Sidebar() {
   const authContext = useContext(AuthContext);
   if (!authContext) {
     throw new Error('AuthContext must be used within an AuthProvider');
   }
-  const { user } = authContext;
+  const { user, logout } = authContext;
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(
+    document.documentElement.classList.contains('dark-theme')
+  );
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDarkMode(document.documentElement.classList.contains('dark-theme'));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    toast.success('Logout realizado com sucesso!');
+    navigate('/login');
+  };
 
   return (
-    <div className={theme.sidebar.container}>
-      <h2 className={theme.sidebar.logo}>ConnectSphere</h2>
+    <div className={isDarkMode ? theme.sidebar.containerDark : theme.sidebar.container}>
+      <h2 className={isDarkMode ? theme.sidebar.logoDark : theme.sidebar.logo}>ConnectSphere</h2>
       <nav className={theme.sidebar.nav}>
-        <Link to="/" className={theme.sidebar.link}>
+        <Link to="/" className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}>
           Home
         </Link>
-        <Link to="/hashtag/tecnologia" className={theme.sidebar.link}>
-          Hashtags
-        </Link>
-        {user && (
-          <Link to="/profile" className={theme.sidebar.link}>
-            Perfil
-          </Link>
-        )}
-        {!user && (
-          <Link to="/login" className={theme.sidebar.link}>
-            Entrar
-          </Link>
+        {user ? (
+          <>
+            <Link to="/profile" className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}>
+              Perfil
+            </Link>
+            <button
+              className={isDarkMode ? theme.sidebar.buttonDark : theme.sidebar.button}
+              onClick={handleLogout}
+            >
+              Sair
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}>
+              Login
+            </Link>
+            <Link to="/register" className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}>
+              Registrar
+            </Link>
+          </>
         )}
       </nav>
     </div>
