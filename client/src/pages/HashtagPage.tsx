@@ -1,62 +1,64 @@
 // client/src/pages/HashtagPage.tsx
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { useContext, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { PostContext } from '../context/PostContextType';
 import { theme } from '../styles/theme';
-import { type Post } from '../types';
-import api from '../services/mockApi';
+import { type Post } from '../types/index';
+import { renderHashtags } from '../utils/renderHashtags';
 
 function HashtagPage() {
-  const { tag } = useParams<{ tag: string }>();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const isDarkMode = document.documentElement.classList.contains('dark-theme');
+  const { id } = useParams<{ id: string }>();
+  const tag = id;
+  const postContext = useContext(PostContext);
+  if (!postContext) {
+    throw new Error('PostContext must be used within a PostProvider');
+  }
+  const { posts } = postContext;
+  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(
+    document.documentElement.classList.contains('dark-theme')
+  );
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const res = await api.get(`/posts?hashtag=${tag}`);
-        setPosts(res.data);
-      } catch (error) {
-        toast.error('Erro ao carregar posts');
-        console.error('Fetch hashtag posts error:', error);
-      }
-    };
-    fetchPosts();
-  }, [tag]);
-
-  const renderContent = (text: string) => {
-    const parts = text.split(/(#[\w]+)/);
-    return parts.map((part, index) =>
-      part.startsWith('#') ? (
-        <Link
-          key={index}
-          to={`/hashtag/${part.slice(1)}`}
-          className={theme.hashtag.link}
-        >
-          {part}
-        </Link>
-      ) : (
-        <span key={index}>{part}</span>
-      )
+    const filtered = posts.filter((post) =>
+      post.content.toLowerCase().includes(`#${tag?.toLowerCase()}`)
     );
-  };
+    setFilteredPosts(filtered);
+  }, [tag, posts]);
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDarkMode(document.documentElement.classList.contains('dark-theme'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className={isDarkMode ? theme.hashtag.containerDark : theme.hashtag.container}>
-      <h2 className={isDarkMode ? theme.hashtag.titleDark : theme.hashtag.title}>#{tag}</h2>
+      <h2 className={isDarkMode ? theme.hashtag.titleDark : theme.hashtag.title}>
+        Posts com #{tag}
+      </h2>
       <div className={theme.hashtag.postList}>
-        {posts.length === 0 ? (
-          <p className={isDarkMode ? theme.hashtag.emptyPostMessageDark : theme.hashtag.emptyPostMessage}>
-            Nenhum post encontrado para #{tag}.
+        {filteredPosts.length === 0 ? (
+          <p
+            className={isDarkMode ? theme.hashtag.emptyPostMessageDark : theme.hashtag.emptyPostMessage}
+          >
+            Nenhum post encontrado com #{tag}.
           </p>
         ) : (
-          posts.map((post) => (
-            <div key={post.id} className={isDarkMode ? theme.hashtag.postContainerDark : theme.hashtag.postContainer}>
-              <p className={isDarkMode ? theme.hashtag.postContentDark : theme.hashtag.postContent}>{renderContent(post.content)}</p>
-              <p className={isDarkMode ? theme.hashtag.postMetaDark : theme.hashtag.postMeta}>
-                Por {post.user?.username || 'Anônimo'} em{' '}
-                {new Date(post.createdAt).toLocaleString('pt-BR')}
+          filteredPosts.map((post) => (
+            <div
+              key={post.id}
+              className={isDarkMode ? theme.hashtag.postContainerDark : theme.hashtag.postContainer}
+            >
+              <p className={isDarkMode ? theme.hashtag.postContentDark : theme.hashtag.postContent}>
+                {renderHashtags(post.content)}
               </p>
+              <div className={isDarkMode ? theme.hashtag.postMetaDark : theme.hashtag.postMeta}>
+                <span>Por {post.user.username}</span> ·{' '}
+                <span>{new Date(post.createdAt).toLocaleString()}</span>
+              </div>
             </div>
           ))
         )}

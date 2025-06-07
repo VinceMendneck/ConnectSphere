@@ -8,4 +8,6 @@ export interface Post {
   content: string;
   createdAt: string;
   user: User;
+  likes: number;
+  likedBy: number[];
 }
