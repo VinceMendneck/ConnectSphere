@@ -3,18 +3,29 @@ import { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../context/AuthContextType';
+import { PostContext } from '../context/PostContextType';
 import { theme } from '../styles/theme';
-import type { Post } from '../types/index';
+import { type Post } from '../types/index';
+import { renderHashtags } from '../utils/renderHashtags';
+
+interface ExtendedPost extends Post {
+  likes: number;
+}
 
 function Home() {
   const authContext = useContext(AuthContext);
+  const postContext = useContext(PostContext);
   if (!authContext) {
     throw new Error('AuthContext must be used within an AuthProvider');
   }
+  if (!postContext) {
+    throw new Error('PostContext must be used within a PostProvider');
+  }
   const { user, logout } = authContext;
+  const { posts, addPost } = postContext;
   const navigate = useNavigate();
   const [content, setContent] = useState('');
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [likedPosts, setLikedPosts] = useState<{ [key: number]: number }>({});
   const [isDarkMode, setIsDarkMode] = useState<boolean>(
     document.documentElement.classList.contains('dark-theme')
   );
@@ -42,16 +53,26 @@ function Home() {
 
   const handlePost = () => {
     if (!content.trim()) return;
-    const newPost: Post = {
-      id: posts.length + 1,
-      content,
-      createdAt: new Date().toISOString(),
-      user: { id: user ? parseInt(user.username, 10) || 1 : 1, username: user?.username || 'Anônimo' },
-    };
-    setPosts([newPost, ...posts]);
+    if (!user) {
+      toast.error('Faça login para postar!');
+      return;
+    }
+    addPost(content, { id: parseInt(user.username, 10) || 1, username: user.username });
     setContent('');
     toast.success('Post criado com sucesso!');
   };
+
+  const handleLike = (postId: number) => {
+    setLikedPosts((prev) => ({
+      ...prev,
+      [postId]: (prev[postId] || 0) + 1,
+    }));
+  };
+
+  const extendedPosts: ExtendedPost[] = posts.map((post) => ({
+    ...post,
+    likes: likedPosts[post.id] || 0,
+  }));
 
   const handleLogout = () => {
     logout();
@@ -100,27 +121,33 @@ function Home() {
         </div>
       ) : (
         <p className={isDarkMode ? theme.home.noUserMessageDark : theme.home.noUserMessage}>
-          Faça <Link to="/login" className={theme.home.link}>login</Link> ou{' '}
-          <Link to="/register" className={theme.home.link}>registre-se</Link> para postar.
+          Faça <Link to="/login" className={theme.auth.link}>login</Link> ou{' '}
+          <Link to="/register" className={theme.auth.link}>registre-se</Link> para postar.
         </p>
       )}
       <div className={theme.home.postList}>
-        {posts.length === 0 ? (
+        {extendedPosts.length === 0 ? (
           <p className={isDarkMode ? theme.home.emptyPostMessageDark : theme.home.emptyPostMessage}>
             Nenhum post disponível.
           </p>
         ) : (
-          posts.map((post) => (
+          extendedPosts.map((post) => (
             <div
               key={post.id}
               className={isDarkMode ? theme.home.postContainerDark : theme.home.postContainer}
             >
               <p className={isDarkMode ? theme.home.postContentDark : theme.home.postContent}>
-                {post.content}
+                {renderHashtags(post.content)}
               </p>
               <div className={isDarkMode ? theme.home.postMetaDark : theme.home.postMeta}>
                 <span>Por {post.user.username}</span> ·{' '}
                 <span>{new Date(post.createdAt).toLocaleString()}</span>
+                <button
+                  onClick={() => handleLike(post.id)}
+                  className="ml-2 text-sm text-[#3b82f6] hover:text-[#1d4ed8]"
+                >
+                  Curtir ({post.likes})
+                </button>
               </div>
             </div>
           ))

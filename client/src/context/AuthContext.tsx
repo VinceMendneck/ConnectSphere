@@ -1,31 +1,45 @@
 // client/src/context/AuthContext.tsx
-import { useState, type ReactNode } from 'react';
-import { AuthContext } from './AuthContextType';
-import { type User } from '../types';
-import api from '../services/mockApi';
+import {type  ReactNode, useState } from 'react';
+import { AuthContext,type User } from './AuthContextType';
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  const login = async (email: string, password: string) => {
-    const response = await api.post('/login', { email, password });
-    const data = response.data as { token: string; userId: number };
-    localStorage.setItem('token', data.token);
-    setUser({ id: data.userId, username: 'user_teste' });
-  };
-
-  const register = async (email: string, password: string, username: string) => {
-    await api.post('/register', { email, password, username });
+  const login = (email: string, password: string) => {
+    // Mock simples para teste
+    if (email && password) {
+      const newUser: User = {
+        id: Date.now(), // ID fictício
+        username: email.split('@')[0],
+        email,
+        password,
+      };
+      setUser(newUser);
+      console.log('Login efetuado:', newUser); // Para debug
+    } else {
+      throw new Error('Email ou senha inválidos');
+    }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
     setUser(null);
+    console.log('Logout efetuado');
+  };
+
+  const register = (username: string, email: string, password: string) => {
+    const newUser: User = {
+      id: Date.now(),
+      username,
+      email,
+      password,
+    };
+    setUser(newUser);
+    console.log('Registro efetuado:', newUser);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}

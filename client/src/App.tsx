@@ -1,28 +1,29 @@
 // client/src/App.tsx
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { PostProvider } from './context/PostContext';
+import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import HashtagPage from './pages/HashtagPage';
-import Sidebar from './components/Sidebar';
-import { AuthProvider } from './context/AuthContext';
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 w-full">
+      <PostProvider>
+        <BrowserRouter>
+          <div className="flex">
+            <Sidebar />
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/hashtag/:tag" element={<HashtagPage />} />
+              <Route path="/hashtag/:id" element={<HashtagPage />} />
             </Routes>
-          </main>
-        </div>
-      </Router>
+          </div>
+        </BrowserRouter>
+      </PostProvider>
     </AuthProvider>
   );
 }
