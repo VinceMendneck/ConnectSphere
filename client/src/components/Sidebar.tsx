@@ -46,7 +46,7 @@ function Sidebar() {
               Perfil
             </Link>
             <button
-              className={isDarkMode ? theme.sidebar.buttonDark : theme.sidebar.button}
+              className={`text-left ${isDarkMode ? theme.sidebar.buttonDark : theme.sidebar.button}`}
               onClick={handleLogout}
             >
               Sair

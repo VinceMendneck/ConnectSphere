@@ -55,7 +55,7 @@ function Login() {
           onChange={(e) => setPassword(e.target.value)}
           className={isDarkMode ? theme.auth.inputDark : theme.auth.input}
         />
-        <button type="submit" className={isDarkMode ? theme.auth.buttonDark : theme.auth.button}>
+        <button type="submit" className={`flex justify-center${isDarkMode ? theme.auth.buttonDark : theme.auth.button}`}>
           Entrar
         </button>
       </form>
