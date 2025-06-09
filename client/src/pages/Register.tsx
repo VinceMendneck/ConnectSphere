@@ -41,7 +41,7 @@ function Register() {
   return (
     <div className={isDarkMode ? theme.auth.containerDark : theme.auth.container}>
       <h2 className={isDarkMode ? theme.auth.titleDark : theme.auth.title}>Registrar</h2>
-      <form onSubmit={handleSubmit} className="w-full max-w-md">
+      <form onSubmit={handleSubmit} className="w-full max-w-md flex flex-col space-y-4 mt-2">
         <input
           type="text"
           placeholder="Nome de usuário"
@@ -63,7 +63,10 @@ function Register() {
           onChange={(e) => setPassword(e.target.value)}
           className={isDarkMode ? theme.auth.inputDark : theme.auth.input}
         />
-        <button type="submit" className={isDarkMode ? theme.auth.buttonDark : theme.auth.button}>
+        <button
+          type="submit"
+          className={`w-fit mx-auto ${isDarkMode ? theme.auth.buttonDark : theme.auth.button}`}
+        >
           Registrar
         </button>
       </form>

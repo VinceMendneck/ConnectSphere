@@ -1,4 +1,4 @@
-// client/src/pages/HashtagPage.tsx
+// client/src/pages/Profile.tsx
 import { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -6,11 +6,19 @@ import { AuthContext } from '../context/AuthContextType';
 import { PostContext } from '../context/PostContextType';
 import { theme } from '../styles/theme';
 import { type Post } from '../types/index';
+import api from '../services/api';
 import { renderHashtags } from '../utils/renderHashtags';
 
-function HashtagPage() {
+interface ProfileData {
+  id: number;
+  username: string;
+  email: string;
+  posts: Post[];
+}
+
+function Profile() {
   const { id } = useParams<{ id: string }>();
-  const tag = id;
+  const userId = parseInt(id || '0', 10);
   const authContext = useContext(AuthContext);
   const postContext = useContext(PostContext);
   if (!authContext) {
@@ -20,18 +28,24 @@ function HashtagPage() {
     throw new Error('PostContext must be used within a PostProvider');
   }
   const { user } = authContext;
-  const { posts, toggleLike } = postContext;
-  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
+  const { toggleLike } = postContext;
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(
     document.documentElement.classList.contains('dark-theme')
   );
 
   useEffect(() => {
-    const filtered = posts.filter((post) =>
-      post.content.toLowerCase().includes(`#${tag?.toLowerCase()}`)
-    );
-    setFilteredPosts(filtered);
-  }, [tag, posts]);
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get(`/api/users/${userId}`);
+        setProfile(response.data);
+      } catch (error) {
+        toast.error('Erro ao carregar perfil');
+        console.error(error);
+      }
+    };
+    fetchProfile();
+  }, [userId]);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -53,30 +67,41 @@ function HashtagPage() {
     }
   };
 
+  if (!profile) {
+    return (
+      <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>
+        <p className={isDarkMode ? theme.profile.emptyMessageDark : theme.profile.emptyMessage}>
+          Carregando...
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className={isDarkMode ? theme.hashtag.containerDark : theme.hashtag.container}>
-      <h2 className={isDarkMode ? theme.hashtag.titleDark : theme.hashtag.title}>
-        Posts com #{tag}
+    <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>
+      <h2 className={isDarkMode ? theme.profile.titleDark : theme.profile.title}>
+        Perfil de @{profile.username}
       </h2>
-      <div className={theme.hashtag.postList}>
-        {filteredPosts.length === 0 ? (
-          <p
-            className={isDarkMode ? theme.hashtag.emptyPostMessageDark : theme.hashtag.emptyPostMessage}
-          >
-            Nenhum post encontrado com #{tag}.
+      <p className={isDarkMode ? theme.profile.infoDark : theme.profile.info}>
+        Email: {profile.email}
+      </p>
+      <div className={theme.profile.postList}>
+        {profile.posts.length === 0 ? (
+          <p className={isDarkMode ? theme.profile.emptyMessageDark : theme.profile.emptyMessage}>
+            Nenhum post encontrado.
           </p>
         ) : (
-          filteredPosts.map((post) => {
+          profile.posts.map((post) => {
             const isLiked = user && post.likedBy.includes(user.id);
             return (
               <div
                 key={post.id}
-                className={isDarkMode ? theme.hashtag.postContainerDark : theme.hashtag.postContainer}
+                className={isDarkMode ? theme.profile.postContainerDark : theme.profile.postContainer}
               >
-                <p className={isDarkMode ? theme.hashtag.postContentDark : theme.hashtag.postContent}>
+                <p className={isDarkMode ? theme.profile.postContentDark : theme.profile.postContent}>
                   {renderHashtags(post.content)}
                 </p>
-                <div className={isDarkMode ? theme.hashtag.postMetaDark : theme.hashtag.postMeta}>
+                <div className={isDarkMode ? theme.profile.postMetaDark : theme.profile.postMeta}>
                   <span>Por {post.user.username}</span> ·{' '}
                   <span>{new Date(post.createdAt).toLocaleString()}</span>
                   <button
@@ -84,11 +109,11 @@ function HashtagPage() {
                     className={
                       isDarkMode
                         ? isLiked
-                          ? theme.hashtag.likedButtonDark
-                          : theme.hashtag.likeButtonDark
+                          ? theme.profile.likedButtonDark
+                          : theme.profile.likeButtonDark
                         : isLiked
-                          ? theme.hashtag.likedButton
-                          : theme.hashtag.likeButton
+                          ? theme.profile.likedButton
+                          : theme.profile.likeButton
                     }
                   >
                     <svg
@@ -117,4 +142,4 @@ function HashtagPage() {
   );
 }
 
-export default HashtagPage;
+export default Profile;

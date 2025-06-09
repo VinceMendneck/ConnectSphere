@@ -1,51 +1,48 @@
-import { type ReactNode, useState } from 'react';
+// client/src/context/PostContext.tsx
+import { type ReactNode, useState, useEffect } from 'react';
 import { PostContext, type PostContextType } from './PostContextType';
 import { type Post } from '../types/index';
+import api from '../services/api';
 
 export function PostProvider({ children }: { children: ReactNode }) {
-  const [posts, setPosts] = useState<Post[]>([
-    {
-      id: 1,
-      content: 'Aprendendo #javascript no ConnectSphere!',
-      createdAt: new Date().toISOString(),
-      user: { id: 1, username: 'dev1' },
-      likes: 0,
-      likedBy: [], // Inicializado como vazio
-    },
-    {
-      id: 2,
-      content: 'Construindo um app com #react! #frontend',
-      createdAt: new Date().toISOString(),
-      user: { id: 2, username: 'dev2' },
-      likes: 0,
-      likedBy: [], // Inicializado como vazio
-    },
-  ]);
+  const [posts, setPosts] = useState<Post[]>([]);
 
-  const addPost = (content: string, user: { id: number; username: string }) => {
-    const newPost: Post = {
-      id: posts.length + 1,
-      content,
-      createdAt: new Date().toISOString(),
-      user,
-      likes: 0,
-      likedBy: [], // Inicializado como vazio
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await api.get('/api/posts');
+        setPosts(response.data);
+      } catch (error) {
+        console.error('Erro ao buscar posts', error);
+      }
     };
-    setPosts([newPost, ...posts]);
+    fetchPosts();
+  }, []);
+
+  const addPost = async (content: string) => {
+    try {
+      const response = await api.post('/api/posts', { content });
+      setPosts((prevPosts) => [response.data, ...prevPosts]);
+    } catch (error) {
+      console.error('Erro ao criar post', error);
+      throw new Error('Erro ao criar post');
+    }
   };
 
-  const toggleLike = (postId: number, userId: number) => {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) => {
-        if (post.id === postId) {
-          const likedBy = post.likedBy.includes(userId)
-            ? post.likedBy.filter((id) => id !== userId) // Remove o like
-            : [...post.likedBy, userId]; // Adiciona o like
-          return { ...post, likedBy, likes: likedBy.length };
-        }
-        return post;
-      })
-    );
+  const toggleLike = async (postId: number) => {
+    try {
+      const response = await api.post(`/api/posts/${postId}/like`);
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post.id === postId
+            ? { ...post, likes: response.data.likes, likedBy: response.data.likedBy }
+            : post
+        )
+      );
+    } catch (error) {
+      console.error('Erro ao curtir/descurtir post', error);
+      throw new Error('Erro ao curtir/descurtir post');
+    }
   };
 
   const value: PostContextType = { posts, addPost, toggleLike };
