@@ -4,8 +4,8 @@ import { type Post } from '../types/index';
 
 export interface PostContextType {
   posts: Post[];
-  addPost: (content: string, user: { id: number; username: string }) => void;
-  toggleLike: (postId: number, userId: number) => void;
+  addPost: (content: string) => Promise<void>;
+  toggleLike: (postId: number) => Promise<void>;
 }
 
 export const PostContext = createContext<PostContextType | null>(null);

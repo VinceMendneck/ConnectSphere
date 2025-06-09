@@ -5,12 +5,7 @@ import { toast } from 'react-toastify';
 import { AuthContext } from '../context/AuthContextType';
 import { PostContext } from '../context/PostContextType';
 import { theme } from '../styles/theme';
-import { type Post } from '../types/index';
 import { renderHashtags } from '../utils/renderHashtags';
-
-interface ExtendedPost extends Post {
-  likes: number;
-}
 
 function Home() {
   const authContext = useContext(AuthContext);
@@ -22,10 +17,9 @@ function Home() {
     throw new Error('PostContext must be used within a PostProvider');
   }
   const { user, logout } = authContext;
-  const { posts, addPost } = postContext;
+  const { posts, addPost, toggleLike } = postContext;
   const navigate = useNavigate();
   const [content, setContent] = useState('');
-  const [likedPosts, setLikedPosts] = useState<{ [key: number]: number }>({});
   const [isDarkMode, setIsDarkMode] = useState<boolean>(
     document.documentElement.classList.contains('dark-theme')
   );
@@ -51,33 +45,37 @@ function Home() {
     setIsDarkMode(!isDarkMode);
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!content.trim()) return;
     if (!user) {
       toast.error('Faça login para postar!');
       return;
     }
-    addPost(content, { id: parseInt(user.username, 10) || 1, username: user.username });
-    setContent('');
-    toast.success('Post criado com sucesso!');
+    try {
+      await addPost(content);
+      setContent('');
+      toast.success('Post criado com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao criar post');
+    }
   };
 
-  const handleLike = (postId: number) => {
-    setLikedPosts((prev) => ({
-      ...prev,
-      [postId]: (prev[postId] || 0) + 1,
-    }));
+  const handleLike = async (postId: number) => {
+    if (!user) {
+      toast.error('Faça login para curtir!');
+      return;
+    }
+    try {
+      await toggleLike(postId);
+    } catch (error) {
+      toast.error('Erro ao curtir/descurtir post');
+    }
   };
-
-  const extendedPosts: ExtendedPost[] = posts.map((post) => ({
-    ...post,
-    likes: likedPosts[post.id] || 0,
-  }));
 
   const handleLogout = () => {
     logout();
-    toast.success('Logout realizado com sucesso!');
-    navigate('/login');
+    toast.success('Logout efetuado com sucesso!');
+    navigate('/');
   };
 
   return (
@@ -89,7 +87,31 @@ function Home() {
             onClick={toggleTheme}
             className={isDarkMode ? theme.home.themeToggleButtonDark : theme.home.themeToggleButton}
           >
-            {isDarkMode ? 'Modo Claro' : 'Modo Escuro'}
+            <span className="flex items-center space-x-1">
+              {isDarkMode ? (
+                <>
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M12 2v2m0 16v2m10-10h-2m-16 0H2m16.364-6.364l-1.414 1.414M5.636 18.364l-1.414 1.414m13.142 0l-1.414-1.414M5.636 5.636l-1.414-1.414M12 6a6 6 0 100 12 6 6 0 000-12z" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                </>
+              )}
+            </span>
           </button>
           {user && (
             <button onClick={handleLogout} className={isDarkMode ? 'primary' : 'primary'}>
@@ -126,31 +148,56 @@ function Home() {
         </p>
       )}
       <div className={theme.home.postList}>
-        {extendedPosts.length === 0 ? (
+        {posts.length === 0 ? (
           <p className={isDarkMode ? theme.home.emptyPostMessageDark : theme.home.emptyPostMessage}>
             Nenhum post disponível.
           </p>
         ) : (
-          extendedPosts.map((post) => (
-            <div
-              key={post.id}
-              className={isDarkMode ? theme.home.postContainerDark : theme.home.postContainer}
-            >
-              <p className={isDarkMode ? theme.home.postContentDark : theme.home.postContent}>
-                {renderHashtags(post.content)}
-              </p>
-              <div className={isDarkMode ? theme.home.postMetaDark : theme.home.postMeta}>
-                <span>Por {post.user.username}</span> ·{' '}
-                <span>{new Date(post.createdAt).toLocaleString()}</span>
-                <button
-                  onClick={() => handleLike(post.id)}
-                  className="ml-2 text-sm text-[#3b82f6] hover:text-[#1d4ed8]"
-                >
-                  Curtir ({post.likes})
-                </button>
+          posts.map((post) => {
+            const isLiked = user && post.likedBy.includes(user.id);
+            return (
+              <div
+                key={post.id}
+                className={isDarkMode ? theme.home.postContainerDark : theme.home.postContainer}
+              >
+                <p className={isDarkMode ? theme.home.postContentDark : theme.home.postContent}>
+                  {renderHashtags(post.content)}
+                </p>
+                <div className={isDarkMode ? theme.home.postMetaDark : theme.home.postMeta}>
+                  <span>Por {post.user.username}</span> ·{' '}
+                  <span>{new Date(post.createdAt).toLocaleString()}</span>
+                  <button
+                    onClick={() => handleLike(post.id)}
+                    className={
+                      isDarkMode
+                        ? isLiked
+                          ? theme.home.likedButtonDark
+                          : theme.home.likeButtonDark
+                        : isLiked
+                          ? theme.home.likedButton
+                          : theme.home.likeButton
+                    }
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill={isLiked ? 'currentColor' : 'none'}
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                      />
+                    </svg>
+                    <span>{post.likes}</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

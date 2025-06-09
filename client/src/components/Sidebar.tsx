@@ -42,7 +42,10 @@ function Sidebar() {
         </Link>
         {user ? (
           <>
-            <Link to="/profile" className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}>
+            <Link
+              to={`/profile/${user.id}`}
+              className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}
+            >
               Perfil
             </Link>
             <button
