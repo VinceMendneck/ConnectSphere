@@ -1,4 +1,3 @@
-// server/middleware/validation.js
 const { z } = require('zod');
 
 const registerSchema = z.object({
@@ -26,6 +25,7 @@ const validateRegister = (req, res, next) => {
     registerSchema.parse(req.body);
     next();
   } catch (error) {
+    console.error('Erro de validação em register:', error.errors);
     res.status(400).json({ error: error.errors });
   }
 };
@@ -35,6 +35,7 @@ const validateLogin = (req, res, next) => {
     loginSchema.parse(req.body);
     next();
   } catch (error) {
+    console.error('Erro de validação em login:', error.errors);
     res.status(400).json({ error: error.errors });
   }
 };
@@ -44,6 +45,7 @@ const validateUpdateUser = (req, res, next) => {
     updateUserSchema.parse(req.body);
     next();
   } catch (error) {
+    console.error('Erro de validação em updateUser:', error.errors);
     res.status(400).json({ error: error.errors });
   }
 };
@@ -53,6 +55,7 @@ const validateCreatePost = (req, res, next) => {
     createPostSchema.parse(req.body);
     next();
   } catch (error) {
+    console.error('Erro de validação em createPost:', error.errors);
     res.status(400).json({ error: error.errors });
   }
 };
