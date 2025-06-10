@@ -1,5 +1,4 @@
-// client/src/pages/Register.tsx
-import { useContext, useState, useEffect } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../context/AuthContextType';
@@ -15,6 +14,7 @@ function Register() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string[]>([]);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(
     document.documentElement.classList.contains('dark-theme')
   );
@@ -27,52 +27,82 @@ function Register() {
     return () => observer.disconnect();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username && email && password) {
-      register(username, email, password);
-      toast.success('Registro realizado com sucesso!');
+    setError([]);
+    if (!username || !email || !password) {
+      setError(['Todos os campos são obrigatórios']);
+      toast.error('Todos os campos são obrigatórios');
+      return;
+    }
+    if (password.length < 6) {
+      setError(['A senha deve ter pelo menos 6 caracteres']);
+      toast.error('A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+    try {
+      await register(username, email, password);
       navigate('/login');
-    } else {
-      toast.error('Preencha todos os campos!');
+      toast.success('Registro efetuado com sucesso!');
+    } catch (err: unknown) {
+      let errorMessage = 'Erro ao registrar';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      setError([errorMessage]);
+      toast.error(errorMessage);
+      console.error('Erro de registro:', err);
     }
   };
 
   return (
     <div className={isDarkMode ? theme.auth.containerDark : theme.auth.container}>
       <h2 className={isDarkMode ? theme.auth.titleDark : theme.auth.title}>Registrar</h2>
-      <form onSubmit={handleSubmit} className="w-full max-w-md flex flex-col space-y-4 mt-2">
+      <form onSubmit={handleSubmit} className="flex flex-col space-y-2 w-full max-w-md">
+        {error.length > 0 && (
+          <div className="text-red-500 text-sm">
+            {error.map((msg, index) => (
+              <p key={index}>{msg}</p>
+            ))}
+          </div>
+        )}
         <input
           type="text"
-          placeholder="Nome de usuário"
+          placeholder="Username"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            setError([]);
+          }}
           className={isDarkMode ? theme.auth.inputDark : theme.auth.input}
         />
         <input
           type="email"
           placeholder="Email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setError([]);
+          }}
           className={isDarkMode ? theme.auth.inputDark : theme.auth.input}
         />
         <input
           type="password"
           placeholder="Senha"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setError([]);
+          }}
           className={isDarkMode ? theme.auth.inputDark : theme.auth.input}
         />
-        <button
-          type="submit"
-          className={`w-fit mx-auto ${isDarkMode ? theme.auth.buttonDark : theme.auth.button}`}
-        >
+        <button type="submit" className={isDarkMode ? theme.auth.buttonDark : theme.auth.button}>
           Registrar
         </button>
+        <p className={isDarkMode ? theme.auth.noUserMessageDark : theme.auth.noUserMessage}>
+          Já tem uma conta? <Link to="/login" className={theme.auth.link}>Faça login</Link>
+        </p>
       </form>
-      <p className={isDarkMode ? theme.auth.noUserMessageDark : theme.auth.noUserMessage}>
-        Já tem uma conta? <Link to="/login" className={theme.auth.link}>Faça login</Link>
-      </p>
     </div>
   );
 }

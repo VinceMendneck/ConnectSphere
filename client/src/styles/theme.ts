@@ -40,8 +40,8 @@ export const theme = {
   auth: {
     container: 'container mx-auto p-6 bg-[#ffffff] min-h-screen flex flex-col items-center',
     containerDark: 'container mx-auto p-6 bg-[#121212] min-h-screen flex flex-col items-center',
-    title: 'text-xl font-semibold text-[#213547]',
-    titleDark: 'text-xl font-semibold text-[#e2e8f0]',
+    title: 'text-xl font-semibold text-[#213547] mb-[50px]',
+    titleDark: 'text-xl font-semibold text-[#e2e8f0] mb-[50px]',
     input:
       'w-full max-w-md p-2.5 border rounded-lg bg-[#ffffff] text-[#213547] border-[#e5e7eb] mb-3 focus:outline-none focus:ring-2 focus:ring-[#444444]',
     inputDark:
