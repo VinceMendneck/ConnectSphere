@@ -1,4 +1,3 @@
-// client/src/components/Sidebar.tsx
 import { Link, useNavigate } from 'react-router-dom';
 import { useContext, useState, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContextType';
@@ -12,7 +11,7 @@ function Sidebar() {
   }
   const { user, logout } = authContext;
   const [isDarkMode, setIsDarkMode] = useState<boolean>(
-    document.documentElement.classList.contains('dark-theme')
+    localStorage.getItem('theme') === 'dark' || !localStorage.getItem('theme')
   );
   const navigate = useNavigate();
 

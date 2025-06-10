@@ -21,8 +21,8 @@ try {
 
 // Rotas
 router.get('/:id', getUser);
-// router.put('/:id', validateUpdateUser, updateUser); // Comentar para evitar erro de authenticateToken
-router.post('/:id/follow', followUser); // Linha 27: Removido authenticateToken temporariamente
+router.put('/:id', validateUpdateUser, updateUser);
+router.post('/:id/follow', followUser);
 router.get('/:id/followers', getFollowers);
 router.get('/:id/following', getFollowing);
 

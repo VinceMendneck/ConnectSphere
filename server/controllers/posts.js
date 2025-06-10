@@ -1,5 +1,5 @@
-// server/controllers/posts.js
 const { PrismaClient } = require('@prisma/client');
+const { upload } = require('../index');
 
 const prisma = new PrismaClient();
 
@@ -9,14 +9,17 @@ const getPosts = async (req, res) => {
       include: { user: true, likes: true },
       orderBy: { createdAt: 'desc' },
     });
-    res.json(posts.map(post => ({
-      id: post.id,
-      content: post.content,
-      createdAt: post.createdAt,
-      user: { id: post.user.id, username: post.user.username },
-      likes: post.likes.length,
-      likedBy: post.likes.map(like => like.userId),
-    })));
+    res.json(
+      posts.map(post => ({
+        id: post.id,
+        content: post.content,
+        createdAt: post.createdAt,
+        user: { id: post.user.id, username: post.user.username },
+        likes: post.likes.length,
+        likedBy: post.likes.map(like => like.userId),
+        image: post.image, // Adicionado
+      }))
+    );
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao listar posts' });
@@ -26,11 +29,13 @@ const getPosts = async (req, res) => {
 const createPost = async (req, res) => {
   const { content } = req.body;
   const userId = req.user.id;
+  const image = req.file ? req.file.path : null;
   try {
     const post = await prisma.post.create({
       data: {
         content,
         userId,
+        image,
       },
       include: { user: true },
     });
@@ -41,6 +46,7 @@ const createPost = async (req, res) => {
       user: { id: post.user.id, username: post.user.username },
       likes: 0,
       likedBy: [],
+      image: post.image, // Adicionado
     });
   } catch (error) {
     console.error(error);
@@ -96,6 +102,7 @@ const getPostsByHashtag = async (req, res) => {
       user: { id: post.user.id, username: post.user.username },
       likes: post.likes.length,
       likedBy: post.likes.map(like => like.userId),
+      image: post.image, // Adicionado
     })));
   } catch (error) {
     console.error(error);
