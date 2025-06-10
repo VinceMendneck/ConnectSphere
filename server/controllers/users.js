@@ -1,5 +1,5 @@
-// server/controllers/users.js
 const { PrismaClient } = require('@prisma/client');
+const { upload } = require('../index');
 
 const prisma = new PrismaClient();
 
@@ -29,10 +29,8 @@ const getUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   const { id } = req.params;
-  const { bio, avatar } = req.body;
-  if (parseInt(id) !== req.user.id) {
-    return res.status(403).json({ error: 'Acesso não autorizado' });
-  }
+  const { bio } = req.body;
+  const avatar = req.file ? req.file.path : null;
   try {
     const user = await prisma.user.update({
       where: { id: parseInt(id) },
@@ -53,7 +51,7 @@ const updateUser = async (req, res) => {
 
 const followUser = async (req, res) => {
   const { id } = req.params;
-  const followerId = req.user.id;
+  const followerId = req.user.id; // Supondo autenticação
   if (parseInt(id) === followerId) {
     return res.status(400).json({ error: 'Não pode seguir a si mesmo' });
   }

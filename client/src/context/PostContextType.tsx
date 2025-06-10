@@ -1,10 +1,9 @@
-// client/src/context/PostContextType.tsx
 import { createContext } from 'react';
 import { type Post } from '../types/index';
 
 export interface PostContextType {
   posts: Post[];
-  addPost: (content: string) => Promise<void>;
+  addPost: (formData: FormData) => Promise<void>;
   toggleLike: (postId: number) => Promise<void>;
 }
 

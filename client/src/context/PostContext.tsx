@@ -1,4 +1,3 @@
-// client/src/context/PostContext.tsx
 import { type ReactNode, useState, useEffect } from 'react';
 import { PostContext, type PostContextType } from './PostContextType';
 import { type Post } from '../types/index';
@@ -19,9 +18,11 @@ export function PostProvider({ children }: { children: ReactNode }) {
     fetchPosts();
   }, []);
 
-  const addPost = async (content: string) => {
+  const addPost = async (formData: FormData) => {
     try {
-      const response = await api.post('/api/posts', { content });
+      const response = await api.post('/api/posts', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       setPosts((prevPosts) => [response.data, ...prevPosts]);
     } catch (error) {
       console.error('Erro ao criar post', error);
