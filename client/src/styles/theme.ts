@@ -1,4 +1,3 @@
-// client/src/styles/theme.ts
 export const theme = {
   home: {
     container: 'flex-1 p-4 bg-[#ffffff] min-h-screen w-full',
@@ -36,6 +35,7 @@ export const theme = {
     likeButtonDark: 'flex items-center space-x-1 text-gray-400 hover:text-red-400',
     likedButton: 'flex items-center space-x-1 text-red-500',
     likedButtonDark: 'flex items-center space-x-1 text-red-400',
+    imageUploadButton: 'cursor-pointer p-0.5 border rounded transition-colors', // Nova propriedade
   },
   auth: {
     container: 'container mx-auto p-6 bg-[#ffffff] min-h-screen flex flex-col items-center',
