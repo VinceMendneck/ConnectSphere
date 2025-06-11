@@ -8,16 +8,27 @@ function HashtagPage() {
   const { tag } = useParams<{ tag: string }>();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(
-    document.documentElement.classList.contains('dark-theme')
+    localStorage.getItem('theme') === 'dark' || !localStorage.getItem('theme')
   );
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchPosts = async () => {
+      setLoading(true);
       try {
         const response = await api.get(`/api/posts/hashtag/${tag}`);
-        setPosts(response.data);
+        console.log('Resposta da API para hashtag:', response.data); // Depuração
+        if (Array.isArray(response.data)) {
+          setPosts(response.data);
+        } else {
+          console.warn('Resposta da API não é um array:', response.data);
+          setPosts([]);
+        }
       } catch (error) {
         console.error('Erro ao buscar posts por hashtag:', error);
+        setPosts([]);
+      } finally {
+        setLoading(false);
       }
     };
     fetchPosts();
@@ -28,6 +39,16 @@ function HashtagPage() {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
   }, [tag]);
+
+  if (loading) {
+    return (
+      <div className={isDarkMode ? theme.hashtag.containerDark : theme.hashtag.container}>
+        <p className={isDarkMode ? theme.hashtag.emptyPostMessageDark : theme.hashtag.emptyPostMessage}>
+          Carregando...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={isDarkMode ? theme.hashtag.containerDark : theme.hashtag.container}>

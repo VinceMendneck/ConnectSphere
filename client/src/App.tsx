@@ -7,7 +7,7 @@ import Profile from './pages/Profile';
 import Sidebar from './components/Sidebar';
 import { AuthProvider } from './context/AuthContext';
 import { PostProvider } from './context/PostContext';
-import { Component, type ReactNode } from 'react';
+import { Component, type ReactNode, useLayoutEffect, useState } from 'react';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false };
@@ -25,6 +25,21 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 function App() {
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useLayoutEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (!savedTheme || savedTheme === 'dark') {
+      document.documentElement.classList.add('dark-theme');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark-theme');
+    }
+    setIsInitialized(true);
+  }, []);
+
+  if (!isInitialized) return null; // Evita renderização antes da inicialização
+
   return (
     <Router>
       <AuthProvider>

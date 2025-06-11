@@ -1,5 +1,4 @@
 const { PrismaClient } = require('@prisma/client');
-const { upload } = require('../index');
 
 const prisma = new PrismaClient();
 
@@ -17,7 +16,7 @@ const getPosts = async (req, res) => {
         user: { id: post.user.id, username: post.user.username },
         likes: post.likes.length,
         likedBy: post.likes.map(like => like.userId),
-        image: post.image, // Adicionado
+        image: post.image,
       }))
     );
   } catch (error) {
@@ -46,7 +45,7 @@ const createPost = async (req, res) => {
       user: { id: post.user.id, username: post.user.username },
       likes: 0,
       likedBy: [],
-      image: post.image, // Adicionado
+      image: post.image,
     });
   } catch (error) {
     console.error(error);
@@ -88,24 +87,29 @@ const getPostsByHashtag = async (req, res) => {
     const posts = await prisma.post.findMany({
       where: {
         content: {
-          contains: `#${tag}`,
-          mode: 'insensitive',
+          contains: `#${tag}`, // Remover mode: 'insensitive' por ser inválido
         },
       },
       include: { user: true, likes: true },
       orderBy: { createdAt: 'desc' },
     });
-    res.json(posts.map(post => ({
-      id: post.id,
-      content: post.content,
-      createdAt: post.createdAt,
-      user: { id: post.user.id, username: post.user.username },
-      likes: post.likes.length,
-      likedBy: post.likes.map(like => like.userId),
-      image: post.image, // Adicionado
-    })));
+    console.log('Posts encontrados para #', tag, ':', posts); // Depuração
+    if (!posts || posts.length === 0) {
+      return res.status(200).json([]);
+    }
+    res.json(
+      posts.map(post => ({
+        id: post.id,
+        content: post.content,
+        createdAt: post.createdAt,
+        user: { id: post.user.id, username: post.user.username },
+        likes: post.likes.length,
+        likedBy: post.likes.map(like => like.userId),
+        image: post.image,
+      }))
+    );
   } catch (error) {
-    console.error(error);
+    console.error('Erro ao buscar posts por hashtag:', error);
     res.status(500).json({ error: 'Erro ao listar posts por hashtag' });
   }
 };
