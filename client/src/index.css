@@ -11,24 +11,24 @@
   -moz-osx-font-smoothing: grayscale;
 
   /* Variáveis para personalização */
-  --sidebar-text: #213547; /* Texto da sidebar (claro) */
-  --sidebar-text-hover: #1e40af; /* Hover do texto da sidebar (claro) */
-  --sidebar-hover-bg: #f3f4f6; /* Hover da sidebar (claro) */
-  --sidebar-dark-text: #c3cad3; /* Texto da sidebar (escuro) */
-  --sidebar-dark-text-hover: #91b9e9; /* Hover do texto da sidebar (escuro) */
-  --sidebar-dark-hover-bg: #333333; /* Hover da sidebar (escuro) */
-  --button-primary-bg: #333333; /* Botões primários */
-  --button-primary-text: #ffffff; /* Texto dos botões primários */
-  --button-primary-text-hover: #e2e8f0; /* Hover do texto dos botões primários */
-  --button-primary-hover-bg: #444444; /* Hover dos botões primários */
-  --toggle-button-bg: #f9f9f9; /* Botão de tema (claro) */
-  --toggle-button-text: #213547; /* Texto do botão de tema (claro) */
-  --toggle-button-text-hover: #1e40af; /* Hover do texto do botão de tema (claro) */
-  --toggle-button-hover-bg: #e5e7eb; /* Hover do botão de tema (claro) */
-  --toggle-button-dark-bg: #333333; /* Botão de tema (escuro) */
-  --toggle-button-dark-text: #ffffff; /* Texto do botão de tema (escuro) */
-  --toggle-button-dark-text-hover: #91b9e9; /* Hover do texto do botão de tema (escuro) */
-  --toggle-button-dark-hover-bg: #444444; /* Hover do botão de tema (escuro) */
+  --sidebar-text: #213547;
+  --sidebar-text-hover: #1e40af;
+  --sidebar-hover-bg: #f3f4f6;
+  --sidebar-dark-text: #c3cad3;
+  --sidebar-dark-text-hover: #91b9e9;
+  --sidebar-dark-hover-bg: #333333;
+  --button-primary-bg: #333333;
+  --button-primary-text: #ffffff;
+  --button-primary-text-hover: #e2e8f0;
+  --button-primary-hover-bg: #444444;
+  --toggle-button-bg: #f9f9f9;
+  --toggle-button-text: #213547;
+  --toggle-button-text-hover: #1e40af;
+  --toggle-button-hover-bg: #e5e7eb;
+  --toggle-button-dark-bg: #333333;
+  --toggle-button-dark-text: #ffffff;
+  --toggle-button-dark-text-hover: #91b9e9;
+  --toggle-button-dark-hover-bg: #444444;
 }
 
 .light-theme {
@@ -126,7 +126,8 @@ button {
   color: var(--button-primary-text-hover);
 }
 
-.light-theme button.theme-toggle {
+.light-theme button.theme-toggle,
+.dark-theme button.theme-toggle {
   background-color: var(--toggle-button-bg);
   color: var(--toggle-button-text);
   padding: 0.25rem 0.75rem;
@@ -134,58 +135,27 @@ button {
   font-size: 0.875rem;
   border: none;
 }
-.light-theme button.theme-toggle:hover {
+.light-theme button.theme-toggle:hover,
+.dark-theme button.theme-toggle:hover {
   background-color: var(--toggle-button-hover-bg);
   color: var(--toggle-button-text-hover);
 }
 
-.dark-theme button.theme-toggle {
-  background-color: var(--toggle-button-dark-bg);
-  color: var(--toggle-button-dark-text);
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  border: none;
-}
-.dark-theme button.theme-toggle:hover {
-  background-color: var(--toggle-button-dark-hover-bg);
-  color: var(--toggle-button-dark-text-hover);
-}
-
-/* Estilo para o botão de upload de imagem */
-.home .imageUploadButton {
-  cursor: pointer;
-  padding: 0.375rem 0.75rem; /* Igual ao botão Postar */
-  border-radius: 0.5rem; /* Igual ao botão Postar */
+/* Estilo mínimo para suportar theme.ts */
+.home .imageUploadButton,
+.home .postButton,
+.home .postButtonDark {
   transition: background-color 0.25s, color 0.25s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none; /* Garantir que a borda seja removida */
-  outline: none; /* Remover contorno */
-  background-color: var(--button-primary-bg); /* Mesmo fundo que o botão Postar */
-  color: var(--button-primary-text); /* Mesmo texto que o botão Postar */
-  box-shadow: none; /* Remover sombra */
-}
-
-.light-theme .home .imageUploadButton:hover {
-  background-color: var(--button-primary-hover-bg); /* Mesmo hover que o botão Postar */
-  color: var(--button-primary-text-hover);
-}
-
-.dark-theme .home .imageUploadButton:hover {
-  background-color: var(--button-primary-hover-bg); /* Mesmo hover que o botão Postar */
-  color: var(--button-primary-text-hover);
 }
 
 /* Garantir que o SVG interno não herde bordas ou estilos indesejados */
 .home .imageUploadButton svg {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  background: transparent !important; /* Garantir que o fundo do SVG não interfira */
-  fill: currentColor !important; /* Forçar o fill do SVG */
-  stroke: none !important; /* Remover stroke para evitar bordas */
+  border: none;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+  fill: currentColor;
+  stroke: none;
 }
 
 /* Sobrescrever herança do .dark-theme e .postContainer */
@@ -193,16 +163,15 @@ button {
 .home .postContainerDark .imageUploadButton,
 .dark-theme .home .imageUploadButton svg,
 .home .postContainerDark .imageUploadButton svg {
-  background-color: var(--button-primary-bg) !important; /* Forçar o fundo */
-  color: var(--button-primary-text) !important; /* Forçar a cor do texto */
-  border: none !important; /* Forçar a remoção da borda */
-  box-shadow: none !important; /* Remover sombra */
-  outline: none !important; /* Remover contorno */
+  background-color: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  border: none;
+  box-shadow: none;
+  outline: none;
 }
 
-@media (prefers-color-scheme: light) {
-  .light-theme {
-    color: #213547;
-    background-color: #ffffff;
-  }
+/* Evitar sobrescrita dos estilos do botão de tema */
+button.theme-toggle {
+  background-color: inherit !important; /* Garante que o bg do theme.ts prevaleça */
+  color: inherit !important;
 }

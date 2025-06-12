@@ -32,23 +32,68 @@ function Sidebar() {
     navigate('/login');
   };
 
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    document.documentElement.classList.toggle('dark-theme', newTheme);
+    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+    setIsDarkMode(newTheme);
+  };
+
   return (
     <div className={isDarkMode ? theme.sidebar.containerDark : theme.sidebar.container}>
-      <h2 className={isDarkMode ? theme.sidebar.logoDark : theme.sidebar.logo}>ConnectSphere</h2>
+      <div className="flex items-start justify-between mb-2">
+        <h2 className={isDarkMode ? theme.sidebar.logoDark : theme.sidebar.logo}>ConnectSphere</h2>
+        <button
+          onClick={toggleTheme}
+          className={isDarkMode ? theme.home.themeToggleButtonDark : theme.home.themeToggleButton}
+        >
+          {isDarkMode ? (
+            <svg
+              className="h-5 w-5 text-yellow-500 hover:text-[#fde458] -mr-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="h-5 w-5 text-gray-800 hover:text-[#4b5569] -mt-0.25 -ml-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
       <nav className={theme.sidebar.nav}>
-        <Link to="/" className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}>
+        <Link to="/" className={`${theme.sidebar.link} hover:text-[#1a2b39]`}>
           Home
         </Link>
         {user ? (
           <>
             <Link
               to={`/profile/${user.id}`}
-              className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}
+              className={`${theme.sidebar.link} hover:text-[#1a2b39]`}
             >
               Perfil
             </Link>
             <button
-              className={`text-left ${isDarkMode ? theme.sidebar.buttonDark : theme.sidebar.button}`}
+              className={`${theme.sidebar.button} hover:text-[#1a2b39]`}
               onClick={handleLogout}
             >
               Sair
@@ -56,10 +101,10 @@ function Sidebar() {
           </>
         ) : (
           <>
-            <Link to="/login" className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}>
+            <Link to="/login" className={`${theme.sidebar.link} hover:text-[#1a2b39]`}>
               Login
             </Link>
-            <Link to="/register" className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}>
+            <Link to="/register" className={`${theme.sidebar.link} hover:text-[#1a2b39]`}>
               Registrar
             </Link>
           </>
