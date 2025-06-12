@@ -1,22 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getPosts, createPost, toggleLike, getPostsByHashtag } = require('../controllers/posts');
-const multer = require('multer');
+const { getPosts, createPost, toggleLike, getPostsByHashtag, deletePost, updatePost } = require('../controllers/posts');
+const upload = require('../multerConfig');
 const { authenticateToken } = require('../middleware/auth');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  },
-});
-const upload = multer({ storage: storage });
-
 router.get('/', getPosts);
-router.post('/', authenticateToken, upload.single('image'), createPost);
+router.post('/', authenticateToken, upload.array('images', 4), createPost);
 router.post('/:id/like', authenticateToken, toggleLike);
 router.get('/hashtag/:tag', getPostsByHashtag);
+router.delete('/:id', authenticateToken, deletePost);
+router.put('/:id', authenticateToken, upload.array('images', 4), updatePost);
 
 module.exports = router;

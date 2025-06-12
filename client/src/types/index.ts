@@ -10,5 +10,5 @@ export interface Post {
   user: User;
   likes: number;
   likedBy: number[];
-  image?: string;
+  images?: string[];
 }

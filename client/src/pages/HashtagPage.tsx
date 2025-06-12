@@ -17,7 +17,7 @@ function HashtagPage() {
       setLoading(true);
       try {
         const response = await api.get(`/api/posts/hashtag/${tag}`);
-        console.log('Resposta da API para hashtag:', response.data); // Depuração
+        console.log('Resposta da API para hashtag:', response.data);
         if (Array.isArray(response.data)) {
           setPosts(response.data);
         } else {
@@ -69,7 +69,18 @@ function HashtagPage() {
               <p className={isDarkMode ? theme.hashtag.postContentDark : theme.hashtag.postContent}>
                 {post.content}
               </p>
-              {post.image && <img src={`http://localhost:5000/${post.image}`} alt="Post image" className="w-32 h-32 mt-2" />}
+              {post.images && post.images.length > 0 && (
+                <div className="grid grid-cols-2 gap-1 mt-2"> {/* Confirmado gap-1 */}
+                  {post.images.map((image, index) => (
+                    <img
+                      key={index}
+                      src={`http://localhost:5000/${image}`}
+                      alt={`Post image ${index + 1}`}
+                      className="w-[153.6px] h-[153.6px] object-cover rounded-lg"
+                    />
+                  ))}
+                </div>
+              )}
               <div className={isDarkMode ? theme.hashtag.postMetaDark : theme.hashtag.postMeta}>
                 <Link to={`/profile/${post.user.id}`} className={theme.hashtag.link}>
                   @{post.user.username}
