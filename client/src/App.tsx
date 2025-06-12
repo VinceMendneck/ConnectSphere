@@ -45,9 +45,9 @@ function App() {
       <AuthProvider>
         <PostProvider>
           <ErrorBoundary>
-            <div className="flex">
+            <div className="flex min-h-screen">
               <Sidebar />
-              <div className="flex-1">
+              <div className="flex-1 ml-64">
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/register" element={<Register />} />

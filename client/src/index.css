@@ -170,6 +170,20 @@ button {
   outline: none;
 }
 
+/* Estilo específico para o botão Cancelar no tema escuro */
+.dark-theme .home .cancel-button {
+  background-color: #444444 !important;
+  color: #ef4444; /* red-500 */
+  border: 1px solid #444444;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.25s, color 0.25s;
+}
+.dark-theme .home .cancel-button:hover {
+  background-color: #555555 !important;
+  color: #b91c1c; /* red-700 */
+}
+
 /* Evitar sobrescrita dos estilos do botão de tema */
 button.theme-toggle {
   background-color: inherit !important; /* Garante que o bg do theme.ts prevaleça */

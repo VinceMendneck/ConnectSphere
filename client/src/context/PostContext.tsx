@@ -46,7 +46,31 @@ export function PostProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const value: PostContextType = { posts, addPost, toggleLike };
+  const deletePost = async (postId: number) => {
+    try {
+      await api.delete(`/api/posts/${postId}`);
+      setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
+    } catch (error) {
+      console.error('Erro ao excluir post', error);
+      throw new Error('Erro ao excluir post');
+    }
+  };
+
+  const updatePost = async (postId: number, formData: FormData) => {
+    try {
+      const response = await api.put(`/api/posts/${postId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => (post.id === postId ? response.data : post))
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar post', error);
+      throw new Error('Erro ao atualizar post');
+    }
+  };
+
+  const value: PostContextType = { posts, addPost, toggleLike, deletePost, updatePost };
 
   return <PostContext.Provider value={value}>{children}</PostContext.Provider>;
 }

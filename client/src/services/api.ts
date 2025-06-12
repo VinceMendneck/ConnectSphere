@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const api = axios.create({
   baseURL: 'http://localhost:5000',
@@ -26,6 +27,11 @@ api.interceptors.response.use(
   },
   (error) => {
     console.error('Erro na resposta:', error.response?.status, error.response?.data);
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      localStorage.removeItem('token');
+      toast.error('Sessão expirada. Faça login novamente.');
+      window.location.href = '/login'; // Redireciona para login
+    }
     return Promise.reject(error);
   }
 );

@@ -81,19 +81,47 @@ function Sidebar() {
         </button>
       </div>
       <nav className={theme.sidebar.nav}>
-        <Link to="/" className={`${theme.sidebar.link} hover:text-[#1a2b39]`}>
+        <Link
+          to="/"
+          style={{
+            background: 'transparent',
+            color: isDarkMode ? '#e2e8f0' : '#213547',
+            padding: '0.5rem 1rem',
+            borderRadius: '0.375rem',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = isDarkMode ? '#60a5fa' : '#3b82f6')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = isDarkMode ? '#e2e8f0' : '#213547')}
+        >
           Home
         </Link>
         {user ? (
           <>
             <Link
               to={`/profile/${user.id}`}
-              className={`${theme.sidebar.link} hover:text-[#1a2b39]`}
+              style={{
+                background: 'transparent',
+                color: isDarkMode ? '#e2e8f0' : '#213547',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.375rem',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = isDarkMode ? '#60a5fa' : '#3b82f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = isDarkMode ? '#e2e8f0' : '#213547')}
             >
               Perfil
             </Link>
             <button
-              className={`${theme.sidebar.button} hover:text-[#1a2b39]`}
+              style={{
+                background: 'transparent',
+                color: isDarkMode ? '#e2e8f0' : '#213547',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.375rem',
+                textAlign: 'left',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = isDarkMode ? '#60a5fa' : '#3b82f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = isDarkMode ? '#e2e8f0' : '#213547')}
               onClick={handleLogout}
             >
               Sair
@@ -101,10 +129,32 @@ function Sidebar() {
           </>
         ) : (
           <>
-            <Link to="/login" className={`${theme.sidebar.link} hover:text-[#1a2b39]`}>
+            <Link
+              to="/login"
+              style={{
+                background: 'transparent',
+                color: isDarkMode ? '#e2e8f0' : '#213547',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.375rem',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = isDarkMode ? '#60a5fa' : '#3b82f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = isDarkMode ? '#e2e8f0' : '#213547')}
+            >
               Login
             </Link>
-            <Link to="/register" className={`${theme.sidebar.link} hover:text-[#1a2b39]`}>
+            <Link
+              to="/register"
+              style={{
+                background: 'transparent',
+                color: isDarkMode ? '#e2e8f0' : '#213547',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.375rem',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = isDarkMode ? '#60a5fa' : '#3b82f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = isDarkMode ? '#e2e8f0' : '#213547')}
+            >
               Registrar
             </Link>
           </>
