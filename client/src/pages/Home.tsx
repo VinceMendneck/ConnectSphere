@@ -45,7 +45,7 @@ function Home() {
       await addPost(formData);
       setContent('');
       setImage(null);
-      if (fileInputRef.current) fileInputRef.current.value = ''; // Limpar input
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
       console.error('Erro ao criar post:', error);
     }
@@ -57,53 +57,10 @@ function Home() {
     }
   };
 
-  const toggleTheme = () => {
-    const newTheme = !isDarkMode;
-    document.documentElement.classList.toggle('dark-theme', newTheme);
-    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
-    setIsDarkMode(newTheme);
-  };
-
   return (
     <div className={isDarkMode ? theme.home.containerDark : theme.home.container}>
       <div className={isDarkMode ? theme.home.header : theme.home.header}>
         <h1 className={isDarkMode ? theme.home.titleDark : theme.home.title}>ConnectSphere</h1>
-        <button
-          onClick={toggleTheme}
-          className={isDarkMode ? theme.home.themeToggleButtonDark : theme.home.themeToggleButton}
-        >
-          {isDarkMode ? (
-            <svg
-              className="h-6 w-6 text-yellow-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-              />
-            </svg>
-          ) : (
-            <svg
-              className="h-6 w-6 text-gray-800"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-              />
-            </svg>
-          )}
-        </button>
       </div>
       <div className={isDarkMode ? theme.home.postFormContainerDark : theme.home.postFormContainer}>
         <form onSubmit={handleSubmit}>
@@ -126,9 +83,12 @@ function Home() {
                 className="hidden"
                 id="imageUpload"
               />
-              <label htmlFor="imageUpload" className={theme.home.imageUploadButton}>
+              <label
+                htmlFor="imageUpload"
+                className={isDarkMode ? theme.home.imageUploadButton : theme.home.imageUploadButtonLight}
+              >
                 <svg
-                  className="w-5 h-5"
+                  className={`w-5 h-5 ${isDarkMode ? 'text-white hover:text-[#e2e8f0]' : 'text-[#213547] hover:text-[#3e4a5a]'}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -145,7 +105,7 @@ function Home() {
                 </svg>
               </label>
               <button type="submit" className={isDarkMode ? theme.home.postButtonDark : theme.home.postButton}>
-                Postar
+                <span className={isDarkMode ? 'text-white hover:text-[#e2e8f0]' : 'text-[#213547] hover:text-[#3e4a5a]'}>Postar</span>
               </button>
             </div>
           </div>
@@ -196,7 +156,7 @@ function Home() {
                 >
                   <svg
                     className="w-5 h-5 mr-1"
-                    fill={post.likedBy?.includes(userId) ? '#ff0000' : 'none'}
+                    fill={post.likedBy?.includes(userId) ? 'currentColor' : 'none'}
                     stroke={post.likedBy?.includes(userId) ? 'none' : 'currentColor'}
                     viewBox="0 0 24 24"
                     xmlns="http://www.w3.org/2000/svg"
