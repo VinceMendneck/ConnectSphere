@@ -16,7 +16,7 @@ const getPosts = async (req, res) => {
         user: { id: post.user.id, username: post.user.username },
         likes: post.likes.length,
         likedBy: post.likes.map(like => like.userId),
-        images: post.images || [], // Usa o campo images
+        images: post.images ? post.images.map(img => `http://localhost:5000/${img}`) : [],
       }))
     );
   } catch (error) {
@@ -28,14 +28,14 @@ const getPosts = async (req, res) => {
 const createPost = async (req, res) => {
   const { content } = req.body;
   const userId = req.user.id;
-  const images = req.files ? req.files.map(file => file.path.replace(/\\/g, '/')) : []; // Normaliza caminhos
+  const images = req.files ? req.files.map(file => file.path.replace(/\\/g, '/')) : [];
   console.log('createPost - Dados recebidos:', { content, userId, images });
   try {
     const post = await prisma.post.create({
       data: {
         content,
         userId,
-        images: images.length > 0 ? images : null, // Armazena como JSON
+        images: images.length > 0 ? images : null,
       },
       include: { user: true },
     });
@@ -46,7 +46,7 @@ const createPost = async (req, res) => {
       user: { id: post.user.id, username: post.user.username },
       likes: 0,
       likedBy: [],
-      images: post.images || [],
+      images: post.images ? post.images.map(img => `http://localhost:5000/${img}`) : [],
     });
   } catch (error) {
     console.error('Erro ao criar post:', error);
@@ -106,7 +106,7 @@ const getPostsByHashtag = async (req, res) => {
         user: { id: post.user.id, username: post.user.username },
         likes: post.likes.length,
         likedBy: post.likes.map(like => like.userId),
-        images: post.images || [],
+        images: post.images ? post.images.map(img => `http://localhost:5000/${img}`) : [],
       }))
     );
   } catch (error) {
@@ -142,8 +142,10 @@ const updatePost = async (req, res) => {
   const { id } = req.params;
   const { content } = req.body;
   const userId = req.user.id;
-  const images = req.files ? req.files.map(file => file.path.replace(/\\/g, '/')) : null;
-  console.log('updatePost - Dados recebidos:', { content, userId, images });
+  const images = req.files ? req.files.map(file => file.path.replace(/\\/g, '/')) : [];
+  const existingImages = req.body.existingImages ? JSON.parse(req.body.existingImages) : [];
+  const removedImages = req.body.removedImages ? JSON.parse(req.body.removedImages) : [];
+  console.log('updatePost - Dados recebidos:', { content, userId, images, existingImages, removedImages });
   try {
     const post = await prisma.post.findUnique({
       where: { id: parseInt(id) },
@@ -155,14 +157,26 @@ const updatePost = async (req, res) => {
     if (post.userId !== userId) {
       return res.status(403).json({ error: 'Você não tem permissão para editar este post' });
     }
+    // Normalizar existingImages para caminhos relativos
+    const validExistingImages = existingImages.map(img => img.replace('http://localhost:5000/', ''));
+    console.log('Valid existing images:', validExistingImages);
+    // Filtrar imagens removidas com base nos índices originais
+    const remainingImages = validExistingImages.filter((img, i) => {
+      console.log(`Checking index ${i}: removed? ${removedImages.includes(i)}`);
+      return !removedImages.includes(i);
+    });
+    console.log('Remaining images after removal:', remainingImages);
+    const allImages = [...remainingImages, ...images];
+    console.log('AllImages antes da atualização:', allImages);
     const updatedPost = await prisma.post.update({
       where: { id: parseInt(id) },
       data: {
         content: content || post.content,
-        images: images || post.images,
+        images: allImages.length > 0 ? allImages : post.images,
       },
       include: { user: true, likes: true },
     });
+    console.log('UpdatedPost.images após atualização:', updatedPost.images);
     res.json({
       id: updatedPost.id,
       content: updatedPost.content,
@@ -170,7 +184,7 @@ const updatePost = async (req, res) => {
       user: { id: updatedPost.user.id, username: updatedPost.user.username },
       likes: updatedPost.likes.length,
       likedBy: updatedPost.likes.map(like => like.userId),
-      images: updatedPost.images || [],
+      images: updatedPost.images.map(img => `http://localhost:5000/${img}`),
     });
   } catch (error) {
     console.error('Erro ao atualizar post:', error);

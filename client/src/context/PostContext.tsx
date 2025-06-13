@@ -56,7 +56,7 @@ export function PostProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updatePost = async (postId: number, formData: FormData) => {
+  const updatePost = async (postId: number, formData: FormData): Promise<Post> => {
     try {
       const response = await api.put(`/api/posts/${postId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -64,13 +64,14 @@ export function PostProvider({ children }: { children: ReactNode }) {
       setPosts((prevPosts) =>
         prevPosts.map((post) => (post.id === postId ? response.data : post))
       );
+      return response.data;
     } catch (error) {
       console.error('Erro ao atualizar post', error);
       throw new Error('Erro ao atualizar post');
     }
   };
 
-  const value: PostContextType = { posts, addPost, toggleLike, deletePost, updatePost };
+ const value: PostContextType = { posts, setPosts, addPost, toggleLike, deletePost, updatePost };
 
   return <PostContext.Provider value={value}>{children}</PostContext.Provider>;
 }
