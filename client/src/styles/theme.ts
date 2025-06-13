@@ -37,6 +37,7 @@ export const theme = {
     likedButtonDark: 'flex items-center space-x-1 text-red-400',
     imageUploadButton: 'cursor-pointer px-3 py-1.5 rounded-lg bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] border-none outline-none hover:bg-[#444444] hover:text-[var(--button-primary-text-hover)]',
     imageUploadButtonLight: 'cursor-pointer px-3 py-1.5 rounded-lg bg-transparent text-[#213547] border-none outline-none',
+    imageContainer: 'max-width: 320px; width: 100%; margin: 0 auto; padding: 4px;', // Corrigido e adicionado padding
   },
   auth: {
     container: 'container mx-auto p-6 bg-[#ffffff] min-h-screen flex flex-col items-center',

@@ -5,6 +5,7 @@ import { theme } from '../styles/theme';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { type Post } from '../types/index';
+import type { AxiosError } from 'axios';
 
 // Função para detectar hashtags
 const extractHashtags = (text: string) => {
@@ -17,7 +18,7 @@ function Home() {
   if (!context || !authContext) {
     throw new Error('PostContext or AuthContext must be used within their respective Providers');
   }
-  const { posts, addPost, toggleLike, deletePost, updatePost } = context;
+  const { posts, setPosts, addPost, toggleLike, deletePost, updatePost } = context;
   const { user } = authContext;
   const [content, setContent] = useState('');
   const [images, setImages] = useState<File[]>([]);
@@ -29,6 +30,7 @@ function Home() {
   const [editContent, setEditContent] = useState('');
   const [editImages, setEditImages] = useState<File[]>([]);
   const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
+  const [removedIndices, setRemovedIndices] = useState<number[]>([]); // Estado para rastrear índices removidos
   const userId = user ? user.id : 0;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -82,15 +84,6 @@ function Home() {
     }
   };
 
-  const handleRemoveImage = (index: number) => {
-    const newImages = images.filter((_, i) => i !== index);
-    const newPreviews = imagePreviews.filter((_, i) => i !== index);
-    URL.revokeObjectURL(imagePreviews[index]);
-    setImages(newImages);
-    setImagePreviews(newPreviews);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
   const handleDeletePost = async (postId: number) => {
     if (!confirm('Tem certeza que deseja excluir este post?')) return;
     try {
@@ -106,7 +99,15 @@ function Home() {
     setEditingPostId(post.id);
     setEditContent(post.content || '');
     setEditImages([]);
-    setEditImagePreviews(post.images || []);
+    setRemovedIndices([]); // Resetar índices removidos ao entrar no modo de edição
+    // Inicializar com caminhos relativos e adicionar prefixo na renderização
+    if (post.images && post.images.length > 0) {
+      const relativePaths = post.images.map(image => image.replace('http://localhost:5000/', ''));
+      setEditImagePreviews(relativePaths.map(path => `http://localhost:5000/${path}`));
+      console.log('Edit previews inicializadas:', relativePaths.map(path => `http://localhost:5000/${path}`));
+    } else {
+      setEditImagePreviews([]);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -114,6 +115,7 @@ function Home() {
     setEditContent('');
     setEditImages([]);
     setEditImagePreviews([]);
+    setRemovedIndices([]);
     if (editFileInputRef.current) editFileInputRef.current.value = '';
     editImagePreviews.forEach(URL.revokeObjectURL);
   };
@@ -129,16 +131,19 @@ function Home() {
       setEditImages([...editImages, ...validFiles]);
       const newPreviews = validFiles.map(file => URL.createObjectURL(file));
       setEditImagePreviews([...editImagePreviews, ...newPreviews]);
+      console.log('Edit previews após upload:', [...editImagePreviews, ...newPreviews]);
     }
   };
 
   const handleRemoveEditImage = (index: number) => {
     const newImages = editImages.filter((_, i) => i !== index);
     const newPreviews = editImagePreviews.filter((_, i) => i !== index);
+    const newRemovedIndices = [...removedIndices, index];
+    setRemovedIndices(newRemovedIndices);
     URL.revokeObjectURL(editImagePreviews[index]);
     setEditImages(newImages);
     setEditImagePreviews(newPreviews);
-    if (editFileInputRef.current) editFileInputRef.current.value = '';
+    console.log('Edit previews após remoção:', newPreviews, 'Removed indices:', newRemovedIndices);
   };
 
   const handleUpdateSubmit = async (e: React.FormEvent) => {
@@ -151,21 +156,45 @@ function Home() {
 
     const formData = new FormData();
     formData.append('content', editContent);
+
+    // Enviar imagens existentes como caminhos relativos no campo existingImages
+    const originalImages = posts.find(post => post.id === editingPostId)?.images || [];
+    if (originalImages.length > 0) {
+      const existingUrls = originalImages.map(image => image.replace('http://localhost:5000/', ''));
+      formData.append('existingImages', JSON.stringify(existingUrls));
+    }
+
+    // Enviar novas imagens como arquivos
     editImages.forEach((image) => {
       if (image) formData.append('images', image);
     });
+
+    // Enviar índices de imagens removidas
+    if (removedIndices.length > 0) {
+      formData.append('removedImages', JSON.stringify(removedIndices));
+    }
+
     console.log('FormData enviado (update):', Array.from(formData.entries()));
     try {
-      await updatePost(editingPostId, formData);
+      const response: Post = await updatePost(editingPostId, formData);
+      console.log('Resposta da atualização - response:', response);
+      setEditImagePreviews(response.images || []); // Sincronizar com a resposta do backend
+      setPosts(prevPosts =>
+        prevPosts.map((post: Post) =>
+          post.id === editingPostId ? { ...post, ...response } : post
+        )
+      );
       setEditingPostId(null);
       setEditContent('');
       setEditImages([]);
       setEditImagePreviews([]);
+      setRemovedIndices([]);
       if (editFileInputRef.current) editFileInputRef.current.value = '';
       editImagePreviews.forEach(URL.revokeObjectURL);
       toast.success('Post atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao atualizar post:', error);
+      const axiosError = error as AxiosError;
+      console.error('Erro ao atualizar post:', axiosError.response?.data || axiosError.message);
       toast.error('Erro ao atualizar post.');
     }
   };
@@ -184,37 +213,18 @@ function Home() {
             placeholder="O que está acontecendo?"
           />
           {imagePreviews.length > 0 && (
-            <div className="grid grid-cols-2 gap-0 p-0 m-0 mt-2 ">
-              {imagePreviews.map((preview, index) => (
-                <div key={index} className="relative w-[153.6px] h-[153.6px] group mx-1">
-                  <img
-                    src={preview}
-                    alt={`Preview ${index + 1}`}
-                    className="w-full h-full object-cover rounded-lg transition-all duration-200 group-hover:brightness-50"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(index)}
-                    className="absolute inset-0 m-auto bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                    title="Remover imagem"
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+            <div className="max-w-[320px] w-full mt-2 p-1 ml-0">
+              <div className="grid grid-cols-2 gap-2">
+                {imagePreviews.map((_, index) => (
+                  <div key={index} className="relative w-[150px] h-[150px]">
+                    <img
+                      src={imagePreviews[index]}
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           <div className={`${theme.home.postFormFooter} flex items-center justify-between`}>
@@ -276,24 +286,40 @@ function Home() {
                     placeholder="Edite seu post..."
                   />
                   {editImagePreviews.length > 0 && (
-                    <div className="grid grid-cols-2 gap-1 mt-2">
-                      {editImagePreviews.map((preview, index) => (
-                        <div key={index} className="relative">
-                          <img
-                            src={preview}
-                            alt={`Preview ${index + 1}`}
-                            className="w-[153.6px] h-[153.6px] object-cover rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveEditImage(index)}
-                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-sm"
-                            title="Remover imagem"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
+                    <div className="max-w-[320px] w-full mt-2 p-1 ml-0">
+                      <div className="grid grid-cols-2 gap-2">
+                        {editImagePreviews.map((preview, index) => (
+                          <div key={index} className="relative w-[150px] h-[150px] group">
+                            <img
+                              src={preview}
+                              alt={`Preview ${index + 1}`}
+                              className="w-full h-full object-cover rounded-lg transition-all duration-200 group-hover:brightness-50"
+                              onError={() => console.log('Erro ao carregar imagem:', preview)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveEditImage(index)}
+                              className="absolute inset-0 w-full h-full bg-red-500 bg-opacity-0 text-white rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer hover:bg-opacity-50"
+                              title="Remover imagem"
+                            >
+                              <svg
+                                className="w-6 h-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   <div className="flex items-center justify-between mt-2">
@@ -412,15 +438,20 @@ function Home() {
                       : post.content}
                   </p>
                   {post.images && post.images.length > 0 && (
-                    <div className="grid grid-cols-2 gap-1 mt-2">
-                      {post.images.map((image, index) => (
-                        <img
-                          key={index}
-                          src={`http://localhost:5000/${image}`}
-                          alt={`Post image ${index + 1}`}
-                          className="w-[153.6px] h-[153.6px] object-cover rounded-lg"
-                        />
-                      ))}
+                    <div className="max-w-[320px] w-full mt-2 p-1 ml-0">
+                      <div className="grid grid-cols-2 gap-2">
+                        {post.images.map((image, index) => (
+                          image && typeof image === 'string' && image.startsWith('http://localhost:5000/') ? (
+                            <div key={index} className="relative w-[150px] h-[150px]">
+                              <img
+                                src={image}
+                                alt={`Post image ${index + 1}`}
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            </div>
+                          ) : null
+                        ))}
+                      </div>
                     </div>
                   )}
                   <div className={isDarkMode ? theme.home.postMetaDark : theme.home.postMeta}>

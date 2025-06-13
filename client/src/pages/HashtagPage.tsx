@@ -17,7 +17,7 @@ function HashtagPage() {
       setLoading(true);
       try {
         const response = await api.get(`/api/posts/hashtag/${tag}`);
-        console.log('Resposta da API para hashtag:', response.data);
+        console.log('Resposta da API para hashtag - raw data:', response.data);
         if (Array.isArray(response.data)) {
           setPosts(response.data);
         } else {
@@ -70,15 +70,22 @@ function HashtagPage() {
                 {post.content}
               </p>
               {post.images && post.images.length > 0 && (
-                <div className="grid grid-cols-2 gap-1 mt-2"> {/* Confirmado gap-1 */}
-                  {post.images.map((image, index) => (
-                    <img
-                      key={index}
-                      src={`http://localhost:5000/${image}`}
-                      alt={`Post image ${index + 1}`}
-                      className="w-[153.6px] h-[153.6px] object-cover rounded-lg"
-                    />
-                  ))}
+                <div className="max-w-[320px] w-full mt-2 p-1 ml-0">
+                  <div className="grid grid-cols-2 gap-2">
+                    {post.images.map((image, index) => {
+                      console.log(`Rendering image ${index + 1}: ${image}`); // Depuração
+                      return (
+                        <div key={index} className="relative w-[150px] h-[150px]">
+                          <img
+                            src={image} // Usar diretamente a URL retornada pela API
+                            alt={`Post image ${index + 1}`}
+                            className="w-full h-full object-cover rounded-lg"
+                            onError={() => console.log('Erro ao carregar imagem:', image)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               <div className={isDarkMode ? theme.hashtag.postMetaDark : theme.hashtag.postMeta}>
