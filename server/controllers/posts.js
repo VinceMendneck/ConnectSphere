@@ -140,11 +140,12 @@ const deletePost = async (req, res) => {
 
 const updatePost = async (req, res) => {
   const { id } = req.params;
-  const { content } = req.body;
+  const { content } = req.body; // Receber content como JSON
   const userId = req.user.id;
   const images = req.files ? req.files.map(file => file.path.replace(/\\/g, '/')) : [];
   const existingImages = req.body.existingImages ? JSON.parse(req.body.existingImages) : [];
   const removedImages = req.body.removedImages ? JSON.parse(req.body.removedImages) : [];
+
   console.log('updatePost - Dados recebidos:', { content, userId, images, existingImages, removedImages });
   try {
     const post = await prisma.post.findUnique({
@@ -157,25 +158,33 @@ const updatePost = async (req, res) => {
     if (post.userId !== userId) {
       return res.status(403).json({ error: 'Você não tem permissão para editar este post' });
     }
+
     // Normalizar existingImages para caminhos relativos
     const validExistingImages = existingImages.map(img => img.replace('http://localhost:5000/', ''));
     console.log('Valid existing images:', validExistingImages);
-    // Filtrar imagens removidas com base nos índices originais
-    const remainingImages = validExistingImages.filter((img, i) => {
-      console.log(`Checking index ${i}: removed? ${removedImages.includes(i)}`);
-      return !removedImages.includes(i);
-    });
+
+    // Preservar imagens existentes se não houver remoções ou novas imagens
+    let remainingImages = validExistingImages;
+    if (removedImages.length > 0) {
+      remainingImages = validExistingImages.filter((img, i) => {
+        console.log(`Checking index ${i}: removed? ${removedImages.includes(i)}`);
+        return !removedImages.includes(i);
+      });
+    }
     console.log('Remaining images after removal:', remainingImages);
+
     const allImages = [...remainingImages, ...images];
     console.log('AllImages antes da atualização:', allImages);
+
     const updatedPost = await prisma.post.update({
       where: { id: parseInt(id) },
       data: {
         content: content || post.content,
-        images: allImages.length > 0 ? allImages : post.images,
+        images: allImages.length > 0 ? allImages : post.images, // Preservar images se não houver mudanças
       },
       include: { user: true, likes: true },
     });
+
     console.log('UpdatedPost.images após atualização:', updatedPost.images);
     res.json({
       id: updatedPost.id,
@@ -184,7 +193,7 @@ const updatePost = async (req, res) => {
       user: { id: updatedPost.user.id, username: updatedPost.user.username },
       likes: updatedPost.likes.length,
       likedBy: updatedPost.likes.map(like => like.userId),
-      images: updatedPost.images.map(img => `http://localhost:5000/${img}`),
+      images: updatedPost.images ? updatedPost.images.map(img => `http://localhost:5000/${img}`) : [],
     });
   } catch (error) {
     console.error('Erro ao atualizar post:', error);
