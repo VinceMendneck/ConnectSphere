@@ -95,6 +95,8 @@ export const theme = {
     likeButtonDark: 'flex items-center space-x-1 text-gray-400 hover:text-red-400',
     likedButton: 'flex items-center space-x-1 text-red-500',
     likedButtonDark: 'flex items-center space-x-1 text-red-400',
+    tab: 'px-4 py-2 rounded-t-lg font-semibold text-[#e2e8f0] transition-colors duration-200', // Estilo para abas no modo escuro
+    tabDark: 'px-4 py-2 rounded-t-lg font-semibold text-[#e2e8f0] transition-colors duration-200 hover:bg-[#444444]', // Ajuste para modo escuro
   },
   sidebar: {
     container: 'fixed top-0 left-0 w-64 bg-[#ffffff] h-screen p-6 flex flex-col border-r border-[#e5e7eb] overflow-hidden',
