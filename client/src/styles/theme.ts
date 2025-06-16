@@ -37,7 +37,7 @@ export const theme = {
     likedButtonDark: 'flex items-center space-x-1 text-red-400',
     imageUploadButton: 'cursor-pointer px-3 py-1.5 rounded-lg bg-[var(--button-primary-bg)] text-[var(--button-primary-text)] border-none outline-none hover:bg-[#444444] hover:text-[var(--button-primary-text-hover)]',
     imageUploadButtonLight: 'cursor-pointer px-3 py-1.5 rounded-lg bg-transparent text-[#213547] border-none outline-none',
-    imageContainer: 'max-width: 320px; width: 100%; margin: 0 auto; padding: 4px;', // Corrigido e adicionado padding
+    imageContainer: 'max-width: 320px; width: 100%; margin: 0 auto; padding: 4px;',
   },
   auth: {
     container: 'container mx-auto p-6 bg-[#ffffff] min-h-screen flex flex-col items-center',
@@ -48,8 +48,8 @@ export const theme = {
       'w-full max-w-md p-2.5 border rounded-lg bg-[#ffffff] text-[#213547] border-[#e5e7eb] mb-3 focus:outline-none focus:ring-2 focus:ring-[#444444]',
     inputDark:
       'w-full max-w-md p-2.5 border rounded-lg bg-[#1f1f1f] text-[#e2e8f0] border-[#444444] mb-3 focus:outline-none focus:ring-2 focus:ring-[#555555]',
-    button: 'primary',
-    buttonDark: 'primary',
+    button: 'px-4 py-2 rounded-lg bg-blue-600 text-[#213547] font-semibold hover:text-[#4591d6] transition-colors duration-200',
+    buttonDark: 'px-4 py-2 rounded-lg bg-blue-500 text-white font-semibold hover:text-[#4591d6] transition-colors duration-200',
     noUserMessage: 'text-[#6b7280] mt-3',
     noUserMessageDark: 'text-[#9ca3af] mt-3',
     link: 'text-[#3b82f6] hover:text-[#1d4ed8]',
@@ -81,6 +81,16 @@ export const theme = {
     titleDark: 'text-xl font-semibold text-[#e2e8f0]',
     info: 'text-sm text-[#6b7280] mb-4',
     infoDark: 'text-sm text-[#9ca3af] mb-4',
+    bioContainer: 'bg-[#f9fafb] p-4 rounded-lg max-w-2xl mx-auto flex flex-col items-center text-center border border-[#e5e7eb]',
+    bioContainerDark: 'bg-[#1f1f1f] p-4 rounded-lg max-w-2xl mx-auto flex flex-col items-center text-center border border-[#444444]',
+    bioText: 'text-[#213547] text-lg min-h-[96px] flex items-center justify-center w-full',
+    bioTextDark: 'text-[#e2e8f0] text-lg min-h-[96px] flex items-center justify-center w-full',
+    tab: 'px-4 py-2 rounded-lg font-semibold text-[#213547] bg-gray-200 hover:text-[#4591d6] transition-colors duration-200',
+    tabDark: 'px-4 py-2 rounded-lg font-semibold text-[#e2e8f0] bg-gray-700 hover:text-[#4591d6] transition-colors duration-200',
+    tabActive: 'px-4 py-2 rounded-lg bg-blue-600 text-[#4591d6] hover:text-[#4591d6] font-semibold transition-colors duration-200',
+    tabActiveDark: 'px-4 py-2 rounded-lg bg-blue-400 text-[#4591d6] hover:text-[#4591d6] font-semibold transition-colors duration-200',
+    editBioButton: 'px-4 py-2 rounded-lg bg-blue-600 text-text-[#e2e8f0] font-semibold hover:text-[#4591d6] transition-colors duration-200',
+    editBioButtonDark: 'px-4 py-2 rounded-lg bg-blue-500 text-[#ffffff] font-semibold hover:text-[#4591d6] transition-colors duration-200',
     postList: 'space-y-4',
     emptyMessage: 'text-[#6b7280]',
     emptyMessageDark: 'text-[#9ca3af]',
@@ -95,8 +105,8 @@ export const theme = {
     likeButtonDark: 'flex items-center space-x-1 text-gray-400 hover:text-red-400',
     likedButton: 'flex items-center space-x-1 text-red-500',
     likedButtonDark: 'flex items-center space-x-1 text-red-400',
-    tab: 'px-4 py-2 rounded-t-lg font-semibold text-[#e2e8f0] transition-colors duration-200', // Estilo para abas no modo escuro
-    tabDark: 'px-4 py-2 rounded-t-lg font-semibold text-[#e2e8f0] transition-colors duration-200 hover:bg-[#444444]', // Ajuste para modo escuro
+    cancelButton: 'px-4 py-2 rounded-lg bg-blue-600 text-[#213547] font-semibold hover:text-[#b81116] transition-colors duration-200',
+    cancelButtonDark: 'px-4 py-2 rounded-lg bg-red-500 text-white font-semibold hover:text-[#b81116] transition-colors duration-200', // Novo: estilo para botão Cancelar no escuro
   },
   sidebar: {
     container: 'fixed top-0 left-0 w-64 bg-[#ffffff] h-screen p-6 flex flex-col border-r border-[#e5e7eb] overflow-hidden',

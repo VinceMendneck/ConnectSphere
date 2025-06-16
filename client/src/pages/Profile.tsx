@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { PostContext } from '../context/PostContextType';
 import { theme } from '../styles/theme';
 import api from '../services/api';
 import type { AxiosResponse } from 'axios';
@@ -28,10 +29,31 @@ interface User {
   following?: number;
 }
 
+// Função para processar hashtags e convertê-las em links
+const renderPostContent = (content: string) => {
+  const hashtagRegex = /#(\w+)/g;
+  const parts = content.split(hashtagRegex);
+  return parts.map((part, index) => {
+    if (index % 2 === 1) {
+      return (
+        <Link
+          key={index}
+          to={`/hashtag/${part}`}
+          className={theme.profile.hashtagLink}
+        >
+          #{part}
+        </Link>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+};
+
 function Profile() {
   const { id } = useParams<{ id: string }>();
   const [user, setUser] = useState<User | null>(null);
   const [bio, setBio] = useState('');
+  const [isEditingBio, setIsEditingBio] = useState(false);
   const [error, setError] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'posts' | 'followers' | 'following'>('posts');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(
@@ -41,6 +63,14 @@ function Profile() {
   const [editImages, setEditImages] = useState<File[]>([]);
   const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
   const [removedIndices, setRemovedIndices] = useState<number[]>([]);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const postContext = useContext(PostContext);
+
+  if (!postContext) {
+    throw new Error('PostContext must be used within a PostProvider');
+  }
+
+  const { updatePost } = postContext;
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -84,9 +114,9 @@ function Profile() {
       });
       console.log('Resposta da API - status:', response.status, 'data:', response.data);
       if (response.status === 200) {
-        // Forçar atualização do estado com a resposta do backend
         setUser(prev => ({ ...prev, ...response.data }));
         setBio(response.data.bio || '');
+        if (type === 'bio') setIsEditingBio(false);
         toast.success(`${type === 'bio' ? 'Bio' : 'Avatar'} atualizado com sucesso!`);
       } else {
         throw new Error(`Status inesperado: ${response.status}`);
@@ -112,64 +142,117 @@ function Profile() {
       setUser(prev => ({ ...prev!, posts: prev!.posts?.filter(post => post.id !== postId) || [] }));
       toast.success('Post excluído com sucesso!');
     } catch (error) {
+      console.error('Erro ao excluir post:', error);
       toast.error('Erro ao excluir post.');
     }
   };
 
   const handleEditPost = (post: Post) => {
-    const currentPost = user.posts?.find(p => p.id === post.id);
     setEditingPost({ ...post });
     setEditImages([]);
-    setEditImagePreviews(currentPost?.images || []);
     setRemovedIndices([]);
+    if (post.images && post.images.length > 0) {
+      const relativePaths = post.images.map(image => image.replace('http://localhost:5000/', ''));
+      setEditImagePreviews(relativePaths.map(path => `http://localhost:5000/${path}`));
+      console.log('Edit previews inicializadas:', relativePaths.map(path => `http://localhost:5000/${path}`));
+    } else {
+      setEditImagePreviews([]);
+    }
   };
 
   const handleEditImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files).slice(0, 4 - editImagePreviews.length);
+      if (editImagePreviews.length + newFiles.length > 4) {
+        toast.warning('Você pode adicionar até 4 imagens por post.');
+        return;
+      }
       const validFiles = newFiles.filter(file => file.type.startsWith('image/'));
       setEditImages([...editImages, ...validFiles]);
       const newPreviews = validFiles.map(file => URL.createObjectURL(file));
       setEditImagePreviews([...editImagePreviews, ...newPreviews]);
+      console.log('Edit previews após upload:', [...editImagePreviews, ...newPreviews], 'Edit images:', validFiles.map(f => f.name));
     }
   };
 
   const handleRemoveEditImage = (index: number) => {
-    const newImages = editImages.filter((_, i) => i !== index - (editImagePreviews.length - editImages.length - removedIndices.length));
+    console.log('Removendo imagem no índice:', index, 'Imagens existentes:', editingPost?.images || []);
+    const newImages = editImages.filter((_, i) => i !== index);
     const newPreviews = editImagePreviews.filter((_, i) => i !== index);
-    const newRemovedIndices = index < (user.posts?.find(p => p.id === editingPost?.id)?.images?.length || 0)
-      ? [...new Set([...removedIndices, index])]
-      : removedIndices;
-    URL.revokeObjectURL(editImagePreviews[index]);
+    const newRemovedIndices = [...removedIndices, index];
+    setRemovedIndices(newRemovedIndices);
+    if (editImagePreviews[index]?.startsWith('blob:')) {
+      URL.revokeObjectURL(editImagePreviews[index]);
+    }
     setEditImages(newImages);
     setEditImagePreviews(newPreviews);
-    setRemovedIndices(newRemovedIndices);
+    console.log('Edit previews após remoção:', newPreviews, 'Removed indices:', newRemovedIndices, 'Edit images:', newImages.map(f => f.name));
   };
 
   const handleUpdatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPost) return;
 
+    if (!editingPost.content.trim() && editImagePreviews.length === 0) {
+      toast.warning('O post deve ter conteúdo ou pelo menos uma imagem.');
+      return;
+    }
+
     const formData = new FormData();
     formData.append('content', editingPost.content);
-    const originalImages = (user.posts?.find(p => p.id === editingPost.id)?.images || []).map(img => img.replace('http://localhost:5000/', ''));
-    const remainingImages = originalImages.filter((_, i) => !removedIndices.includes(i));
-    if (remainingImages.length > 0) formData.append('existingImages', JSON.stringify(remainingImages));
-    editImages.forEach((image) => image && formData.append('images', image));
-    if (removedIndices.length > 0) formData.append('removedImages', JSON.stringify(removedIndices));
 
+    // Enviar imagens existentes como caminhos relativos
+    const originalImages = editingPost.images || [];
+    if (originalImages.length > 0) {
+      const existingUrls = originalImages.map(image => image.replace('http://localhost:5000/', ''));
+      formData.append('existingImages', JSON.stringify(existingUrls));
+      console.log('existingImages enviadas:', existingUrls);
+    }
+
+    // Enviar novas imagens como arquivos
+    editImages.forEach((image) => {
+      if (image) formData.append('images', image);
+    });
+    console.log('Novas imagens enviadas:', editImages.map(f => f.name));
+
+    // Enviar índices de imagens removidas
+    if (removedIndices.length > 0) {
+      formData.append('removedImages', JSON.stringify(removedIndices));
+      console.log('removedImages enviadas:', removedIndices);
+    }
+
+    console.log('FormData enviado (update):', Array.from(formData.entries()));
     try {
-      await api.put(`/api/posts/${editingPost.id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const updatedPost = await updatePost(editingPost.id, formData);
+      console.log('Resposta da atualização - response:', updatedPost);
+      // Atualizar o estado local do usuário
+      setUser(prev => ({
+        ...prev!,
+        posts: prev!.posts?.map(post => 
+          post.id === editingPost.id 
+            ? { 
+                ...post, 
+                content: editingPost.content, 
+                images: updatedPost.images?.map((img: string) => 
+                  img.startsWith('http://localhost:5000/') ? img : `http://localhost:5000/${img}`
+                ) || [] 
+              } 
+            : post
+        ) || []
+      }));
+      // Recarregar o estado do usuário para garantir sincronização
       const updatedUser: AxiosResponse<UserResponse> = await api.get(`/api/users/${id}`);
+      console.log('Estado do usuário após atualização:', updatedUser.data);
       setUser(updatedUser.data);
+      setEditImagePreviews([]);
       setEditingPost(null);
       setEditImages([]);
-      setEditImagePreviews([]);
       setRemovedIndices([]);
+      if (editFileInputRef.current) editFileInputRef.current.value = '';
+      editImagePreviews.forEach(URL.revokeObjectURL);
       toast.success('Post atualizado com sucesso!');
     } catch (error) {
+      console.error('Erro ao atualizar post:', error);
       toast.error('Erro ao atualizar post.');
     }
   };
@@ -179,6 +262,8 @@ function Profile() {
     setEditImages([]);
     setEditImagePreviews([]);
     setRemovedIndices([]);
+    if (editFileInputRef.current) editFileInputRef.current.value = '';
+    editImagePreviews.forEach(URL.revokeObjectURL);
   };
 
   return (
@@ -202,7 +287,7 @@ function Profile() {
               const file = e.target.files ? e.target.files[0] : null;
               if (file) {
                 console.log('Arquivo avatar selecionado:', file.name, 'tamanho:', file.size, 'tipo:', file.type);
-                handleUpdate('avatar', file); // Envia o arquivo diretamente
+                handleUpdate('avatar', file);
               } else {
                 console.log('Nenhum arquivo avatar selecionado');
                 toast.error('Selecione uma imagem válida');
@@ -215,45 +300,88 @@ function Profile() {
         <p className={isDarkMode ? theme.profile.infoDark : theme.profile.info}>@{user.username}</p>
       </div>
 
-      <div className="mt-4 p-4 bg-gray-800 rounded-lg max-w-2xl mx-auto flex flex-col items-center text-center">
-        <textarea
-          value={bio}
-          onChange={(e) => setBio(e.target.value.slice(0, 160))}
-          placeholder="Adicione uma bio (máximo 160 caracteres)"
-          className={`${theme.auth.inputDark} w-full h-24 resize-none text-center`}
-        />
-        <p className="text-sm text-gray-400 mt-1">{bio.length}/160</p>
-        {error.length > 0 && (
-          <div className="text-red-500 text-sm mt-2">
-            {error.map((msg, index) => (
-              <p key={index}>{msg}</p>
-            ))}
-          </div>
+      <div className={isDarkMode ? theme.profile.bioContainerDark : theme.profile.bioContainer}>
+        {isEditingBio ? (
+          <>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value.slice(0, 160))}
+              placeholder="Adicione uma bio (máximo 160 caracteres)"
+              className={`${isDarkMode ? theme.auth.inputDark : theme.auth.input} w-full h-24 resize-none text-center`}
+            />
+            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mt-1`}>{bio.length}/160</p>
+            {error.length > 0 && (
+              <div className="text-red-500 text-sm mt-2">
+                {error.map((msg, index) => (
+                  <p key={index}>{msg}</p>
+                ))}
+              </div>
+            )}
+            <div className="flex space-x-2 mt-2">
+              <button type="button" onClick={() => handleUpdate('bio')} className={isDarkMode ? theme.auth.buttonDark : theme.auth.button}>
+                Salvar Bio
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditingBio(false);
+                  setBio(user.bio || '');
+                  setError([]);
+                }}
+                className={isDarkMode ? theme.profile.cancelButtonDark : theme.profile.cancelButton}
+              >
+                Cancelar
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className={isDarkMode ? theme.profile.bioTextDark : theme.profile.bioText}>
+              {user.bio || 'Nenhuma bio definida'}
+            </p>
+            {user.id === parseInt(id ?? '') && (
+              <button
+                type="button"
+                onClick={() => setIsEditingBio(true)}
+                className={isDarkMode ? theme.profile.editBioButtonDark : theme.profile.editBioButton}
+              >
+                Editar Bio
+              </button>
+            )}
+          </>
         )}
-        <button type="button" onClick={() => handleUpdate('bio')} className={theme.auth.buttonDark}>
-          Atualizar Bio
-        </button>
       </div>
 
       <div className="mt-4 flex justify-center space-x-4">
-        <button className={`${theme.profile.tab} ${activeTab === 'posts' ? 'bg-blue-500' : 'bg-gray-700'}`} onClick={() => setActiveTab('posts')}>
+        <button
+          className={`${isDarkMode ? theme.profile.tabDark : theme.profile.tab} ${activeTab === 'posts' ? 'text-red-500' : ''}`}
+          onClick={() => setActiveTab('posts')}
+        >
           Posts
         </button>
-        <button className={`${theme.profile.tab} ${activeTab === 'followers' ? 'bg-blue-500' : 'bg-gray-700'}`} onClick={() => setActiveTab('followers')}>
-          Followers {user.followers || 0}
+        <button
+          className={`${isDarkMode ? theme.profile.tabDark : theme.profile.tab} ${activeTab === 'followers' ? 'text-red-500' : ''}`}
+          onClick={() => setActiveTab('followers')}
+        >
+          Seguidores {user.followers || 0}
         </button>
-        <button className={`${theme.profile.tab} ${activeTab === 'following' ? 'bg-blue-500' : 'bg-gray-700'}`} onClick={() => setActiveTab('following')}>
-          Following {user.following || 0}
+        <button
+          className={`${isDarkMode ? theme.profile.tabDark : theme.profile.tab} ${activeTab === 'following' ? 'text-red-500' : ''}`}
+          onClick={() => setActiveTab('following')}
+        >
+          Seguindo {user.following || 0}
         </button>
       </div>
 
       <div className="mt-4">
         {activeTab === 'posts' && (
-          <div className={isDarkMode ? theme.hashtag.postList : theme.hashtag.postList}>
+          <div className={isDarkMode ? theme.profile.postList : theme.profile.postList}>
             {user.posts && user.posts.length > 0 ? (
               [...user.posts].reverse().map((post) => (
-                <div key={post.id} className={isDarkMode ? theme.hashtag.postContainerDark : theme.hashtag.postContainer}>
-                  <p className={isDarkMode ? theme.hashtag.postContentDark : theme.hashtag.postContent}>{post.content}</p>
+                <div key={post.id} className={isDarkMode ? theme.profile.postContainerDark : theme.profile.postContainer}>
+                  <p className={isDarkMode ? theme.profile.postContentDark : theme.profile.postContent}>
+                    {renderPostContent(post.content)}
+                  </p>
                   {post.images && post.images.length > 0 && (
                     <div className="max-w-[320px] w-full mt-2 p-1 ml-0">
                       <div className="grid grid-cols-2 gap-2">
@@ -269,8 +397,8 @@ function Profile() {
                       </div>
                     </div>
                   )}
-                  <div className={isDarkMode ? theme.hashtag.postMetaDark : theme.hashtag.postMeta}>
-                    <Link to={`/profile/${user.id}`} className={theme.hashtag.link}>
+                  <div className={isDarkMode ? theme.profile.postMetaDark : theme.profile.postMeta}>
+                    <Link to={`/profile/${user.id}`} className={theme.profile.hashtagLink}>
                       @{user.username}
                     </Link>
                     {user.id === parseInt(id ?? '') && (
@@ -297,11 +425,11 @@ function Profile() {
                     )}
                   </div>
                   {editingPost && editingPost.id === post.id && (
-                    <div className="mt-2 p-4 bg-gray-800 rounded-lg">
+                    <div className={isDarkMode ? 'p-4 bg-gray-800 rounded-lg' : theme.home.postFormContainer}>
                       <textarea
                         value={editingPost.content}
                         onChange={(e) => setEditingPost({ ...editingPost, content: e.target.value })}
-                        className={`${theme.auth.inputDark} w-full p-3 border rounded-lg`}
+                        className={`${isDarkMode ? theme.auth.inputDark : theme.auth.input} w-full p-3 border rounded-lg`}
                       />
                       {editImagePreviews.length > 0 && (
                         <div className="max-w-[320px] w-full mt-2 p-1 ml-0">
@@ -309,14 +437,17 @@ function Profile() {
                             {editImagePreviews.map((preview, index) => (
                               <div key={index} className="relative w-[150px] h-[150px] group">
                                 <img
-                                  src={preview.startsWith('blob:') ? preview : `http://localhost:5000/${preview}`}
+                                  src={preview}
                                   alt={`Edit preview ${index + 1}`}
-                                  className="w-full h-full object-cover rounded-lg"
+                                  className="w-full h-full object-cover rounded-lg transition-all duration-200 group-hover:brightness-50"
+                                  onError={() => console.log('Erro ao carregar imagem:', preview)}
+                                  onMouseEnter={() => console.log('Hover na imagem:', preview)}
                                 />
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveEditImage(index)}
-                                  className="absolute inset-0 w-full h-full bg-red-500 bg-opacity-0 text-white rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100"
+                                  className="absolute inset-0 w-full h-full bg-red-500 bg-opacity-0 text-white rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer hover:bg-opacity-50"
+                                  title="Remover imagem"
                                 >
                                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -332,6 +463,7 @@ function Profile() {
                           type="file"
                           accept="image/*"
                           multiple
+                          ref={editFileInputRef}
                           onChange={handleEditImageUpload}
                           className="hidden"
                           id={`editImageUpload-${post.id}`}
@@ -342,31 +474,31 @@ function Profile() {
                         >
                           <svg className={`w-5 h-5 ${isDarkMode ? 'text-white' : 'text-[#213547]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <rect x="2" y="2" width="20" height="20" rx="2" stroke="currentColor" fill="none" />
-                            <path d="M5 7h14M5 12h7m-7 5h14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+                            <path d="M5 7h14M5 12h7m-7 5h14" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
                           </svg>
                         </label>
                       </div>
                       <div className="flex justify-end mt-2">
-                        <button onClick={handleUpdatePost} className={`${theme.auth.buttonDark} mr-2`}>Salvar</button>
-                        <button onClick={cancelEdit} className={`${theme.auth.buttonDark} text-red-500`}>Cancelar</button>
+                        <button onClick={handleUpdatePost} className={`${isDarkMode ? theme.auth.buttonDark : theme.auth.button} mr-2`}>Salvar</button>
+                        <button onClick={cancelEdit} className={`${isDarkMode ? theme.profile.cancelButtonDark : theme.profile.cancelButton}`}>Cancelar</button>
                       </div>
                     </div>
                   )}
                 </div>
               ))
             ) : (
-              <p className={isDarkMode ? theme.hashtag.emptyPostMessageDark : theme.hashtag.emptyPostMessage}>Nenhum post disponível.</p>
+              <p className={isDarkMode ? theme.profile.emptyMessageDark : theme.profile.emptyMessage}>Nenhum post disponível.</p>
             )}
           </div>
         )}
         {activeTab === 'followers' && (
-          <div className={isDarkMode ? theme.hashtag.postList : theme.hashtag.postList}>
-            <p className={isDarkMode ? theme.hashtag.postContentDark : theme.hashtag.postContent}>Followers: {user.followers || 0}</p>
+          <div className={isDarkMode ? theme.profile.postList : theme.profile.postList}>
+            <p className={isDarkMode ? theme.profile.postContentDark : theme.profile.postContent}>Seguidores: {user.followers || 0}</p>
           </div>
         )}
         {activeTab === 'following' && (
-          <div className={isDarkMode ? theme.hashtag.postList : theme.hashtag.postList}>
-            <p className={isDarkMode ? theme.hashtag.postContentDark : theme.hashtag.postContent}>Following: {user.following || 0}</p>
+          <div className={isDarkMode ? theme.profile.postList : theme.profile.postList}>
+            <p className={isDarkMode ? theme.profile.postContentDark : theme.profile.postContent}>Seguindo: {user.following || 0}</p>
           </div>
         )}
       </div>
