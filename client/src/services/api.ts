@@ -11,7 +11,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log('Requisição enviada:', config.method, config.url, config.data);
+    console.log('Requisição enviada:', config.method, config.url, {
+      headers: config.headers,
+      data: config.data instanceof FormData ? Array.from(config.data.entries()) : config.data,
+    });
     return config;
   },
   (error) => {
@@ -26,11 +29,18 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('Erro na resposta:', error.response?.status, error.response?.data);
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    console.error('Erro na resposta:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    if (error.response?.status === 401) {
+      const errorMessage = error.response?.data?.error || 'Sessão expirada';
+      toast.error(`${errorMessage}. Faça login novamente.`);
       localStorage.removeItem('token');
-      toast.error('Sessão expirada. Faça login novamente.');
-      window.location.href = '/login'; // Redireciona para login
+    } else if (error.response?.status === 403) {
+      toast.error('Permissão negada. Verifique sua sessão.');
+      localStorage.removeItem('token');
     }
     return Promise.reject(error);
   }

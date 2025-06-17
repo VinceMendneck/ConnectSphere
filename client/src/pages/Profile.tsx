@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useContext } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { PostContext } from '../context/PostContextType';
 import { theme } from '../styles/theme';
 import api from '../services/api';
 import type { AxiosResponse } from 'axios';
 import { type Post } from '../types/index';
 import { toast } from 'react-toastify';
+import { jwtDecode } from 'jwt-decode';
 
 interface UserResponse {
   id: number;
@@ -27,6 +28,17 @@ interface User {
   posts?: Post[];
   followers?: number;
   following?: number;
+}
+
+interface FollowUser {
+  id: number;
+  username: string;
+  email: string;
+}
+
+interface JwtPayload {
+  userId: number;
+  username: string;
 }
 
 // Função para processar hashtags e convertê-las em links
@@ -51,6 +63,7 @@ const renderPostContent = (content: string) => {
 
 function Profile() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [bio, setBio] = useState('');
   const [isEditingBio, setIsEditingBio] = useState(false);
@@ -63,7 +76,11 @@ function Profile() {
   const [editImages, setEditImages] = useState<File[]>([]);
   const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
   const [removedIndices, setRemovedIndices] = useState<number[]>([]);
+  const [isFollowing, setIsFollowing] = useState<boolean>(false);
+  const [followersList, setFollowersList] = useState<FollowUser[]>([]);
+  const [followingList, setFollowingList] = useState<FollowUser[]>([]);
   const editFileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const postContext = useContext(PostContext);
 
   if (!postContext) {
@@ -72,11 +89,24 @@ function Profile() {
 
   const { updatePost } = postContext;
 
+  // Obtém o ID do usuário logado do token JWT
+  const token = localStorage.getItem('token');
+  let loggedInUserId: number | null = null;
+  if (token) {
+    try {
+      const decoded: JwtPayload = jwtDecode(token);
+      loggedInUserId = decoded.userId;
+    } catch (err) {
+      console.error('Erro ao decodificar token:', err);
+    }
+  }
+
+  const isOwnProfile = user?.id === loggedInUserId;
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const response = await api.get(`/api/users/${id}`);
-        console.log('Resposta da API para perfil - raw data:', response.data);
         setUser(response.data);
         setBio(response.data.bio || '');
       } catch (err) {
@@ -84,22 +114,59 @@ function Profile() {
         console.error('Erro ao carregar perfil:', err);
       }
     };
+
+    const fetchFollowStatus = async () => {
+      if (!loggedInUserId || isOwnProfile) return;
+      try {
+        const followers = await api.get(`/api/users/${id}/followers`);
+        const isFollowing = followers.data.some((f: FollowUser) => f.id === loggedInUserId);
+        setIsFollowing(isFollowing);
+      } catch (err) {
+        console.error('Erro ao verificar status de follow:', err);
+      }
+    };
+
+    const fetchFollowers = async () => {
+      try {
+        const response = await api.get(`/api/users/${id}/followers`);
+        setFollowersList(response.data);
+      } catch (err) {
+        console.error('Erro ao carregar seguidores:', err);
+      }
+    };
+
+    const fetchFollowing = async () => {
+      try {
+        const response = await api.get(`/api/users/${id}/following`);
+        setFollowingList(response.data);
+      } catch (err) {
+        console.error('Erro ao carregar seguidos:', err);
+      }
+    };
+
     fetchUser();
+    fetchFollowStatus();
+    fetchFollowers();
+    fetchFollowing();
 
     const observer = new MutationObserver(() => {
       setIsDarkMode(document.documentElement.classList.contains('dark-theme'));
     });
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
-  }, [id]);
+  }, [id, loggedInUserId, isOwnProfile]);
 
   const handleUpdate = async (type: 'bio' | 'avatar', file?: File) => {
-    console.log('handleUpdate iniciado para', type, 'com user ID:', id);
     setError([]);
     const formData = new FormData();
     if (type === 'bio') formData.append('bio', bio);
     if (type === 'avatar' && file) {
-      console.log('Adicionando avatar ao formData:', file.name);
+      if (!file.type.startsWith('image/')) {
+        setError(['Arquivo inválido. Selecione uma imagem.']);
+        toast.error('Arquivo inválido. Selecione uma imagem.');
+        if (avatarInputRef.current) avatarInputRef.current.value = '';
+        return;
+      }
       formData.append('avatar', file);
     } else if (type === 'avatar' && !file) {
       setError(['Nenhum arquivo de avatar selecionado']);
@@ -108,32 +175,70 @@ function Profile() {
     }
 
     try {
-      console.log('Enviando requisição PUT para /api/users/${id}');
       const response: AxiosResponse<UserResponse> = await api.put(`/api/users/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      console.log('Resposta da API - status:', response.status, 'data:', response.data);
-      if (response.status === 200) {
-        setUser(prev => ({ ...prev, ...response.data }));
-        setBio(response.data.bio || '');
-        if (type === 'bio') setIsEditingBio(false);
-        toast.success(`${type === 'bio' ? 'Bio' : 'Avatar'} atualizado com sucesso!`);
-      } else {
-        throw new Error(`Status inesperado: ${response.status}`);
+      setUser(prev => ({ ...prev!, ...response.data }));
+      setBio(response.data.bio || '');
+      if (type === 'bio') setIsEditingBio(false);
+      if (type === 'avatar' && avatarInputRef.current) {
+        avatarInputRef.current.value = '';
       }
+      toast.success(`${type === 'bio' ? 'Bio' : 'Avatar'} atualizado com sucesso!`);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      const responseError =
-        err && typeof err === 'object' && 'response' in err && (err as { response: { data: { error?: string } } }).response?.data?.error;
-      setError(['Erro ao atualizar perfil: ' + (responseError || errorMessage)]);
-      console.error('Erro ao atualizar perfil:', err);
-      toast.error(`Erro ao atualizar perfil: ${responseError || errorMessage}`);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const error = err as { response?: { status?: number; data?: { error?: string } } };
+        if (error.response?.status === 401) {
+          const errorMessage = error.response?.data?.error || 'Sessão expirada';
+          toast.error(`${errorMessage}. Faça login novamente.`);
+          navigate('/login');
+          return;
+        }
+        if (error.response?.status === 403) {
+          toast.error('Permissão negada. Verifique sua sessão.');
+          navigate('/login');
+          return;
+        }
+        const errorMessage = error.response?.data?.error || 'Erro ao atualizar perfil';
+        setError([errorMessage]);
+        toast.error(errorMessage);
+      } else {
+        setError(['Erro ao atualizar perfil']);
+        toast.error('Erro ao atualizar perfil');
+      }
     }
   };
 
-  if (!user) return <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>Carregando...</div>;
-
-  const defaultAvatar = '/default-avatar.png';
+  const handleFollowToggle = async () => {
+    if (!loggedInUserId) {
+      toast.error('Faça login para seguir usuários.');
+      navigate('/login');
+      return;
+    }
+    try {
+      const response = await api.post(`/api/users/${id}/follow`);
+      setIsFollowing(!isFollowing);
+      // Atualiza contagem de seguidores
+      setUser(prev => ({
+        ...prev!,
+        followers: isFollowing ? (prev!.followers || 0) - 1 : (prev!.followers || 0) + 1,
+      }));
+      // Atualiza listas
+      const followersResponse = await api.get(`/api/users/${id}/followers`);
+      setFollowersList(followersResponse.data);
+      const followingResponse = await api.get(`/api/users/${id}/following`);
+      setFollowingList(followingResponse.data);
+      toast.success(response.data.message);
+    } catch (err: unknown) {
+      let errorMessage = 'Erro ao gerenciar follow';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const errorObj = err as { response?: { data?: { error?: string } } };
+        errorMessage = errorObj.response?.data?.error || errorMessage;
+      }
+      toast.error(errorMessage);
+    }
+  };
 
   const handleDeletePost = async (postId: number) => {
     if (!confirm('Tem certeza que deseja excluir este post?')) return;
@@ -142,7 +247,6 @@ function Profile() {
       setUser(prev => ({ ...prev!, posts: prev!.posts?.filter(post => post.id !== postId) || [] }));
       toast.success('Post excluído com sucesso!');
     } catch (error) {
-      console.error('Erro ao excluir post:', error);
       toast.error('Erro ao excluir post.');
     }
   };
@@ -152,9 +256,9 @@ function Profile() {
     setEditImages([]);
     setRemovedIndices([]);
     if (post.images && post.images.length > 0) {
-      const relativePaths = post.images.map(image => image.replace('http://localhost:5000/', ''));
-      setEditImagePreviews(relativePaths.map(path => `http://localhost:5000/${path}`));
-      console.log('Edit previews inicializadas:', relativePaths.map(path => `http://localhost:5000/${path}`));
+      setEditImagePreviews(post.images.map(image => 
+        image.startsWith('http://localhost:5000/') ? image : `http://localhost:5000/${image}`
+      ));
     } else {
       setEditImagePreviews([]);
     }
@@ -171,12 +275,10 @@ function Profile() {
       setEditImages([...editImages, ...validFiles]);
       const newPreviews = validFiles.map(file => URL.createObjectURL(file));
       setEditImagePreviews([...editImagePreviews, ...newPreviews]);
-      console.log('Edit previews após upload:', [...editImagePreviews, ...newPreviews], 'Edit images:', validFiles.map(f => f.name));
     }
   };
 
   const handleRemoveEditImage = (index: number) => {
-    console.log('Removendo imagem no índice:', index, 'Imagens existentes:', editingPost?.images || []);
     const newImages = editImages.filter((_, i) => i !== index);
     const newPreviews = editImagePreviews.filter((_, i) => i !== index);
     const newRemovedIndices = [...removedIndices, index];
@@ -186,7 +288,6 @@ function Profile() {
     }
     setEditImages(newImages);
     setEditImagePreviews(newPreviews);
-    console.log('Edit previews após remoção:', newPreviews, 'Removed indices:', newRemovedIndices, 'Edit images:', newImages.map(f => f.name));
   };
 
   const handleUpdatePost = async (e: React.FormEvent) => {
@@ -201,31 +302,24 @@ function Profile() {
     const formData = new FormData();
     formData.append('content', editingPost.content);
 
-    // Enviar imagens existentes como caminhos relativos
     const originalImages = editingPost.images || [];
     if (originalImages.length > 0) {
-      const existingUrls = originalImages.map(image => image.replace('http://localhost:5000/', ''));
+      const existingUrls = originalImages.map(image => 
+        image.replace('http://localhost:5000/', '')
+      );
       formData.append('existingImages', JSON.stringify(existingUrls));
-      console.log('existingImages enviadas:', existingUrls);
     }
 
-    // Enviar novas imagens como arquivos
     editImages.forEach((image) => {
       if (image) formData.append('images', image);
     });
-    console.log('Novas imagens enviadas:', editImages.map(f => f.name));
 
-    // Enviar índices de imagens removidas
     if (removedIndices.length > 0) {
       formData.append('removedImages', JSON.stringify(removedIndices));
-      console.log('removedImages enviadas:', removedIndices);
     }
 
-    console.log('FormData enviado (update):', Array.from(formData.entries()));
     try {
       const updatedPost = await updatePost(editingPost.id, formData);
-      console.log('Resposta da atualização - response:', updatedPost);
-      // Atualizar o estado local do usuário
       setUser(prev => ({
         ...prev!,
         posts: prev!.posts?.map(post => 
@@ -240,9 +334,7 @@ function Profile() {
             : post
         ) || []
       }));
-      // Recarregar o estado do usuário para garantir sincronização
       const updatedUser: AxiosResponse<UserResponse> = await api.get(`/api/users/${id}`);
-      console.log('Estado do usuário após atualização:', updatedUser.data);
       setUser(updatedUser.data);
       setEditImagePreviews([]);
       setEditingPost(null);
@@ -252,7 +344,6 @@ function Profile() {
       editImagePreviews.forEach(URL.revokeObjectURL);
       toast.success('Post atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao atualizar post:', error);
       toast.error('Erro ao atualizar post.');
     }
   };
@@ -266,42 +357,54 @@ function Profile() {
     editImagePreviews.forEach(URL.revokeObjectURL);
   };
 
+  if (!user) return <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>Carregando...</div>;
+
+  const DEFAULT_AVATAR = 'http://localhost:5000/uploads/default-avatar.png';
+
   return (
     <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>
       <div className="relative flex flex-col items-center mt-8">
         <div className="relative w-32 h-32">
-          <img src={user.avatar || defaultAvatar} alt={`${user.username} avatar`} className="w-full h-full rounded-full object-cover" />
-          <label
-            htmlFor="avatar-upload"
-            className="absolute bottom-0 right-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center hover:bg-blue-600 cursor-pointer"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-          </label>
-          <input
-            type="file"
-            accept="image/*"
-            id="avatar-upload"
-            onChange={(e) => {
-              const file = e.target.files ? e.target.files[0] : null;
-              if (file) {
-                console.log('Arquivo avatar selecionado:', file.name, 'tamanho:', file.size, 'tipo:', file.type);
-                handleUpdate('avatar', file);
-              } else {
-                console.log('Nenhum arquivo avatar selecionado');
-                toast.error('Selecione uma imagem válida');
-              }
-            }}
-            className="hidden"
+          <img 
+            src={user.avatar && user.avatar.trim() !== '' ? user.avatar : DEFAULT_AVATAR} 
+            alt={`${user.username} avatar`} 
+            className="w-full h-full rounded-full object-cover" 
+            onError={(e) => (e.currentTarget.src = DEFAULT_AVATAR)}
           />
+          {isOwnProfile && (
+            <>
+              <label
+                htmlFor="avatar-upload"
+                className="absolute bottom-0 right-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center hover:bg-blue-600 cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                id="avatar-upload"
+                ref={avatarInputRef}
+                onChange={(e) => {
+                  const file = e.target.files ? e.target.files[0] : null;
+                  if (file) {
+                    handleUpdate('avatar', file);
+                  } else {
+                    toast.error('Selecione uma imagem válida');
+                  }
+                }}
+                className="hidden"
+              />
+            </>
+          )}
         </div>
         <h2 className={isDarkMode ? theme.profile.titleDark : theme.profile.title}>{user.username}</h2>
         <p className={isDarkMode ? theme.profile.infoDark : theme.profile.info}>@{user.username}</p>
       </div>
 
       <div className={isDarkMode ? theme.profile.bioContainerDark : theme.profile.bioContainer}>
-        {isEditingBio ? (
+        {isOwnProfile && isEditingBio ? (
           <>
             <textarea
               value={bio}
@@ -339,13 +442,21 @@ function Profile() {
             <p className={isDarkMode ? theme.profile.bioTextDark : theme.profile.bioText}>
               {user.bio || 'Nenhuma bio definida'}
             </p>
-            {user.id === parseInt(id ?? '') && (
+            {isOwnProfile ? (
               <button
                 type="button"
                 onClick={() => setIsEditingBio(true)}
                 className={isDarkMode ? theme.profile.editBioButtonDark : theme.profile.editBioButton}
               >
                 Editar Bio
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleFollowToggle}
+                className={isDarkMode ? theme.auth.buttonDark : theme.auth.button}
+              >
+                {isFollowing ? 'Deixar de seguir' : 'Seguir'}
               </button>
             )}
           </>
@@ -401,7 +512,7 @@ function Profile() {
                     <Link to={`/profile/${user.id}`} className={theme.profile.hashtagLink}>
                       @{user.username}
                     </Link>
-                    {user.id === parseInt(id ?? '') && (
+                    {isOwnProfile && (
                       <>
                         <button
                           onClick={() => handleEditPost(post)}
@@ -424,7 +535,7 @@ function Profile() {
                       </>
                     )}
                   </div>
-                  {editingPost && editingPost.id === post.id && (
+                  {editingPost && editingPost.id === post.id && isOwnProfile && (
                     <div className={isDarkMode ? 'p-4 bg-gray-800 rounded-lg' : theme.home.postFormContainer}>
                       <textarea
                         value={editingPost.content}
@@ -440,8 +551,6 @@ function Profile() {
                                   src={preview}
                                   alt={`Edit preview ${index + 1}`}
                                   className="w-full h-full object-cover rounded-lg transition-all duration-200 group-hover:brightness-50"
-                                  onError={() => console.log('Erro ao carregar imagem:', preview)}
-                                  onMouseEnter={() => console.log('Hover na imagem:', preview)}
                                 />
                                 <button
                                   type="button"
@@ -493,12 +602,36 @@ function Profile() {
         )}
         {activeTab === 'followers' && (
           <div className={isDarkMode ? theme.profile.postList : theme.profile.postList}>
-            <p className={isDarkMode ? theme.profile.postContentDark : theme.profile.postContent}>Seguidores: {user.followers || 0}</p>
+            {followersList.length > 0 ? (
+              followersList.map((follower) => (
+                <div key={follower.id} className={isDarkMode ? theme.profile.postContainerDark : theme.profile.postContainer}>
+                  <Link to={`/profile/${follower.id}`} className={theme.profile.hashtagLink}>
+                    @{follower.username}
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <p className={isDarkMode ? theme.profile.postContentDark : theme.profile.postContent}>
+                Nenhum seguidor.
+              </p>
+            )}
           </div>
         )}
         {activeTab === 'following' && (
           <div className={isDarkMode ? theme.profile.postList : theme.profile.postList}>
-            <p className={isDarkMode ? theme.profile.postContentDark : theme.profile.postContent}>Seguindo: {user.following || 0}</p>
+            {followingList.length > 0 ? (
+              followingList.map((followed) => (
+                <div key={followed.id} className={isDarkMode ? theme.profile.postContainerDark : theme.profile.postContainer}>
+                  <Link to={`/profile/${followed.id}`} className={theme.profile.hashtagLink}>
+                    @{followed.username}
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <p className={isDarkMode ? theme.profile.postContentDark : theme.profile.postContent}>
+                Não segue ninguém.
+              </p>
+            )}
           </div>
         )}
       </div>

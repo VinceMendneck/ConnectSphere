@@ -26,7 +26,7 @@ const register = async (req, res) => {
         password: hashedPassword,
       },
     });
-    console.log('Usuário registrado com sucesso:', user.id);
+    console.log('Usuário registrado com sucesso:', { id: user.id, username: user.username });
     res.status(201).json({ id: user.id, username: user.username, email: user.email });
   } catch (error) {
     console.error('Erro ao registrar usuário:', error);
@@ -52,11 +52,15 @@ const login = async (req, res) => {
       console.log('Senha inválida para:', email);
       return res.status(400).json({ error: 'Senha inválida' });
     }
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    console.log('Login bem-sucedido:', user.id);
-    res.json({ token, userId: user.id });
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    console.log('Login bem-sucedido:', { userId: user.id, username: user.username });
+    res.json({ token, userId: user.id, username: user.username });
   } catch (error) {
-    console.error('Erro ao fazer login:', error);
+    console.error('Erro ao fazer login:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erro ao fazer login' });
   }
 };
