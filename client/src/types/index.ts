@@ -3,6 +3,18 @@ export interface User {
   username: string;
 }
 
+export interface Comment {
+  id: number;
+  content: string;
+  user: User;
+  postId: number;
+  parentId?: number;
+  likes: number;
+  likedBy: number[];
+  replies: Comment[];
+  createdAt: string;
+}
+
 export interface Post {
   id: number;
   content: string;
@@ -11,4 +23,5 @@ export interface Post {
   likes: number;
   likedBy: number[];
   images?: string[];
+  comments?: Comment[];
 }
