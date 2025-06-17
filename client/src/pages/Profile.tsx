@@ -34,7 +34,7 @@ interface FollowUser {
   email: string;
 }
 
-// Função para detectar hashtags (copiada de Home)
+// Função para detectar hashtags
 const extractHashtags = (text: string) => {
   return text.match(/#\w+/g) || [];
 };
@@ -71,6 +71,8 @@ function Profile() {
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentContent, setEditCommentContent] = useState<string>('');
+  const [loadingProfile, setLoadingProfile] = useState<boolean>(true);
+  const [loadingAvatars, setLoadingAvatars] = useState<boolean>(true);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,90 +80,110 @@ function Profile() {
   const isOwnProfile = user?.id === loggedInUserId;
   const DEFAULT_AVATAR = 'http://localhost:5000/uploads/default-avatar.png';
 
-  // Função para buscar avatar (copiada de Home)
-  const fetchUserAvatar = useCallback(
-    async (userId: number) => {
-      if (userAvatars[userId]) return;
+  // Função para buscar múltiplos avatares de uma vez
+  const fetchUserAvatars = useCallback(
+    async (userIds: number[]) => {
+      const uniqueIds = Array.from(new Set(userIds)).filter(id => !userAvatars[id]);
+      if (uniqueIds.length === 0) {
+        setLoadingAvatars(false);
+        return;
+      }
       try {
-        const response = await api.get(`/api/users/${userId}`);
-        const avatar =
-          response.data.avatar && response.data.avatar.trim() !== ''
-            ? response.data.avatar
-            : DEFAULT_AVATAR;
-        setUserAvatars(prev => ({ ...prev, [userId]: avatar }));
+        const avatarPromises = uniqueIds.map(id => api.get(`/api/users/${id}`));
+        const responses = await Promise.all(avatarPromises);
+        const newAvatars = responses.reduce((acc, response) => {
+          const avatar =
+            response.data.avatar && response.data.avatar.trim() !== ''
+              ? response.data.avatar
+              : DEFAULT_AVATAR;
+          return { ...acc, [response.data.id]: avatar };
+        }, {} as Record<number, string>);
+        setUserAvatars(prev => ({ ...prev, ...newAvatars }));
       } catch (err) {
-        console.error(`Erro ao buscar avatar do usuário ${userId}:`, err);
-        setUserAvatars(prev => ({ ...prev, [userId]: DEFAULT_AVATAR }));
+        console.error('Erro ao buscar avatares:', err);
+        uniqueIds.forEach(id => {
+          setUserAvatars(prev => ({ ...prev, [id]: DEFAULT_AVATAR }));
+        });
+      } finally {
+        setLoadingAvatars(false);
       }
     },
     [userAvatars]
   );
 
   useEffect(() => {
-    const fetchUser = async () => {
+    let isMounted = true;
+
+    const fetchUserData = async () => {
+      setLoadingProfile(true);
+      setLoadingAvatars(true);
+      setError([]);
       try {
-        const response = await api.get(`/api/users/${id}`);
-        setUser(response.data);
-        setBio(response.data.bio || '');
-        fetchUserAvatar(response.data.id);
-        // Busca avatares para posts e comentários
-        posts.forEach((post) => {
-          if (post.user.id === parseInt(id!)) {
-            fetchUserAvatar(post.user.id);
-            post.comments?.forEach((comment) => {
-              fetchUserAvatar(comment.user.id);
-              comment.replies?.forEach((reply) => fetchUserAvatar(reply.user.id));
-            });
-          }
-        });
+        // Buscar dados do usuário
+        const userResponse = await api.get(`/api/users/${id}`);
+        if (isMounted) {
+          setUser(userResponse.data);
+          setBio(userResponse.data.bio || '');
+        }
+
+        // Buscar status de follow
+        let isFollowingStatus = false;
+        if (loggedInUserId && !isOwnProfile) {
+          const followersResponse = await api.get(`/api/users/${id}/followers`);
+          isFollowingStatus = followersResponse.data.some((f: FollowUser) => f.id === loggedInUserId);
+        }
+
+        // Buscar listas de seguidores e seguidos
+        const [followersResponse, followingResponse] = await Promise.all([
+          api.get(`/api/users/${id}/followers`),
+          api.get(`/api/users/${id}/following`),
+        ]);
+
+        if (isMounted) {
+          setIsFollowing(isFollowingStatus);
+          setFollowersList(followersResponse.data);
+          setFollowingList(followingResponse.data);
+
+          // Coletar IDs de usuários para buscar avatares
+          const userIds: number[] = [parseInt(id!)];
+          followersResponse.data.forEach((follower: FollowUser) => userIds.push(follower.id));
+          followingResponse.data.forEach((followed: FollowUser) => userIds.push(followed.id));
+          posts.forEach((post) => {
+            if (post.user.id === parseInt(id!)) {
+              userIds.push(post.user.id);
+              post.comments?.forEach((comment) => {
+                userIds.push(comment.user.id);
+                comment.replies?.forEach((reply) => userIds.push(reply.user.id));
+              });
+            }
+          });
+
+          await fetchUserAvatars(userIds);
+        }
       } catch (err) {
-        setError(['Erro ao carregar perfil']);
-        console.error('Erro ao carregar perfil:', err);
+        console.error('Erro ao carregar dados do perfil:', err);
+        if (isMounted) {
+          setError(['Erro ao carregar perfil']);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingProfile(false);
+        }
       }
     };
 
-    const fetchFollowStatus = async () => {
-      if (!loggedInUserId || isOwnProfile) return;
-      try {
-        const followers = await api.get(`/api/users/${id}/followers`);
-        const isFollowing = followers.data.some((f: FollowUser) => f.id === loggedInUserId);
-        setIsFollowing(isFollowing);
-      } catch (err) {
-        console.error('Erro ao verificar status de follow:', err);
-      }
-    };
-
-    const fetchFollowers = async () => {
-      try {
-        const response = await api.get(`/api/users/${id}/followers`);
-        setFollowersList(response.data);
-        response.data.forEach((follower: FollowUser) => fetchUserAvatar(follower.id));
-      } catch (err) {
-        console.error('Erro ao carregar seguidores:', err);
-      }
-    };
-
-    const fetchFollowing = async () => {
-      try {
-        const response = await api.get(`/api/users/${id}/following`);
-        setFollowingList(response.data);
-        response.data.forEach((followed: FollowUser) => fetchUserAvatar(followed.id));
-      } catch (err) {
-        console.error('Erro ao carregar seguidos:', err);
-      }
-    };
-
-    fetchUser();
-    fetchFollowStatus();
-    fetchFollowers();
-    fetchFollowing();
+    fetchUserData();
 
     const observer = new MutationObserver(() => {
       setIsDarkMode(document.documentElement.classList.contains('dark-theme'));
     });
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, [id, loggedInUserId, isOwnProfile, fetchUserAvatar, posts]);
+
+    return () => {
+      isMounted = false;
+      observer.disconnect();
+    };
+  }, [id, loggedInUserId, isOwnProfile, fetchUserAvatars, posts]);
 
   const handleUpdate = async (type: 'bio' | 'avatar', file?: File) => {
     setError([]);
@@ -221,10 +243,10 @@ function Profile() {
       }));
       const followersResponse = await api.get(`/api/users/${id}/followers`);
       setFollowersList(followersResponse.data);
-      followersResponse.data.forEach((follower: FollowUser) => fetchUserAvatar(follower.id));
+      followersResponse.data.forEach((follower: FollowUser) => fetchUserAvatars([follower.id]));
       const followingResponse = await api.get(`/api/users/${id}/following`);
       setFollowingList(followingResponse.data);
-      followingResponse.data.forEach((followed: FollowUser) => fetchUserAvatar(followed.id));
+      followingResponse.data.forEach((followed: FollowUser) => fetchUserAvatars([followed.id]));
       toast.success(response.data.message);
     } catch (err: unknown) {
       const errorMessage = err instanceof AxiosError && err.response?.data?.error
@@ -447,6 +469,41 @@ function Profile() {
     }
   };
 
+  // Componente de esqueleto para carregamento
+  const LoadingSkeleton = () => (
+    <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>
+      <div className="relative flex flex-col items-center mt-8 animate-pulse">
+        <div className="w-32 h-32 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+        <div className="h-6 w-24 bg-gray-300 dark:bg-gray-600 rounded mt-4"></div>
+        <div className="h-4 w-20 bg-gray-300 dark:bg-gray-600 rounded mt-2"></div>
+      </div>
+      <div className="mt-4 flex justify-center space-x-4">
+        <div className="h-6 w-16 bg-gray-300 dark:bg-gray-600 rounded"></div>
+        <div className="h-6 w-24 bg-gray-300 dark:bg-gray-600 rounded"></div>
+        <div className="h-6 w-24 bg-gray-300 dark:bg-gray-600 rounded"></div>
+      </div>
+      <div className="mt-4">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className={`${isDarkMode ? theme.home.postContainerDark : theme.home.postContainer} mb-4 animate-pulse`}
+          >
+            <div className="flex items-center mb-2">
+              <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full mr-2"></div>
+              <div className="h-4 w-24 bg-gray-300 dark:bg-gray-600 rounded"></div>
+            </div>
+            <div className="h-6 w-full bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
+            <div className="h-6 w-3/4 bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
+            <div className="flex items-center space-x-4 mt-2">
+              <div className="h-4 w-16 bg-gray-300 dark:bg-gray-600 rounded"></div>
+              <div className="h-4 w-16 bg-gray-300 dark:bg-gray-600 rounded"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   const renderComment = (comment: Comment, post: Post, level: number = 0) => {
     return (
       <div key={comment.id} className={`ml-${level * 4} mt-2 relative`}>
@@ -633,7 +690,11 @@ function Profile() {
     );
   };
 
-  if (!user) return <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>Carregando...</div>;
+  if (loadingProfile || loadingAvatars) {
+    return <LoadingSkeleton />;
+  }
+
+  if (!user) return <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>Erro ao carregar perfil.</div>;
 
   const userPosts = posts.filter(post => post.user.id === parseInt(id!)).sort((a, b) => 
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

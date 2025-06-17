@@ -39,6 +39,8 @@ function Home() {
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentContent, setEditCommentContent] = useState<string>('');
+  const [loadingPosts, setLoadingPosts] = useState<boolean>(true);
+  const [loadingAvatars, setLoadingAvatars] = useState<boolean>(true);
   const userId = user ? user.id : 0;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -64,20 +66,51 @@ function Home() {
   );
 
   useEffect(() => {
-    console.log('isDarkMode:', isDarkMode);
-    posts.forEach((post) => {
-      fetchUserAvatar(post.user.id);
-      post.comments?.forEach((comment) => {
-        fetchUserAvatar(comment.user.id);
-        comment.replies?.forEach((reply) => fetchUserAvatar(reply.user.id));
-      });
-    });
+    let isMounted = true;
+
+    const fetchPosts = async () => {
+      setLoadingPosts(true);
+      setLoadingAvatars(true);
+      try {
+        const response = await api.get('/api/posts');
+        if (isMounted) {
+          setPosts(response.data);
+          const userIds: number[] = [];
+          response.data.forEach((post: Post) => {
+            userIds.push(post.user.id);
+            post.comments?.forEach((comment) => {
+              userIds.push(comment.user.id);
+              comment.replies?.forEach((reply) => userIds.push(reply.user.id));
+            });
+          });
+          const uniqueIds = Array.from(new Set(userIds));
+          await Promise.all(uniqueIds.map(id => fetchUserAvatar(id)));
+        }
+      } catch (err) {
+        console.error('Erro ao buscar posts:', err);
+        if (isMounted) {
+          setPosts([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingPosts(false);
+          setLoadingAvatars(false);
+        }
+      }
+    };
+
+    fetchPosts();
+
     const observer = new MutationObserver(() => {
       setIsDarkMode(document.documentElement.classList.contains('dark-theme'));
     });
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, [posts, isDarkMode, fetchUserAvatar]);
+
+    return () => {
+      isMounted = false;
+      observer.disconnect();
+    };
+  }, [fetchUserAvatar, setPosts]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -393,6 +426,29 @@ function Home() {
     }
   };
 
+  // Componente de esqueleto para carregamento
+  const LoadingSkeleton = () => (
+    <div className={isDarkMode ? theme.home.containerDark : theme.home.container}>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div
+          key={index}
+          className={`${isDarkMode ? theme.home.postContainerDark : theme.home.postContainer} mb-4 animate-pulse`}
+        >
+          <div className="flex items-center mb-2">
+            <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full mr-2"></div>
+            <div className="h-4 w-24 bg-gray-300 dark:bg-gray-600 rounded"></div>
+          </div>
+          <div className="h-6 w-full bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
+          <div className="h-6 w-3/4 bg-gray-300 dark:bg-gray-600 rounded mb-2"></div>
+          <div className="flex items-center space-x-4 mt-2">
+            <div className="h-4 w-16 bg-gray-300 dark:bg-gray-600 rounded"></div>
+            <div className="h-4 w-16 bg-gray-300 dark:bg-gray-600 rounded"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   const renderComment = (comment: Comment, post: Post, level: number = 0) => {
     return (
       <div key={comment.id} className={`ml-${level * 4} mt-2 relative`}>
@@ -578,6 +634,10 @@ function Home() {
       </div>
     );
   };
+
+  if (loadingPosts || loadingAvatars) {
+    return <LoadingSkeleton />;
+  }
 
   return (
     <div className={isDarkMode ? theme.home.containerDark : theme.home.container}>
