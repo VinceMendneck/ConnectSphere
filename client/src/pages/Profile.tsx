@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useContext } from 'react';
+import { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { PostContext } from '../context/PostContextType';
 import { theme } from '../styles/theme';
@@ -79,6 +79,7 @@ function Profile() {
   const [isFollowing, setIsFollowing] = useState<boolean>(false);
   const [followersList, setFollowersList] = useState<FollowUser[]>([]);
   const [followingList, setFollowingList] = useState<FollowUser[]>([]);
+  const [userAvatars, setUserAvatars] = useState<Record<number, string>>({});
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const postContext = useContext(PostContext);
@@ -103,12 +104,31 @@ function Profile() {
 
   const isOwnProfile = user?.id === loggedInUserId;
 
+  const DEFAULT_AVATAR = 'http://localhost:5000/uploads/default-avatar.png';
+
+  // Função para buscar o avatar de um usuário
+  const fetchUserAvatar = useCallback(async (userId: number) => {
+    if (userAvatars[userId]) return; // Evita requisições redundantes
+    try {
+      const response = await api.get(`/api/users/${userId}`);
+      const avatar = response.data.avatar && response.data.avatar.trim() !== ''
+        ? response.data.avatar
+        : DEFAULT_AVATAR;
+      setUserAvatars(prev => ({ ...prev, [userId]: avatar }));
+    } catch (err) {
+      console.error(`Erro ao buscar avatar do usuário ${userId}:`, err);
+      setUserAvatars(prev => ({ ...prev, [userId]: DEFAULT_AVATAR }));
+    }
+  }, [userAvatars, DEFAULT_AVATAR]);
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
         const response = await api.get(`/api/users/${id}`);
         setUser(response.data);
         setBio(response.data.bio || '');
+        // Busca avatar do usuário do perfil
+        fetchUserAvatar(response.data.id);
       } catch (err) {
         setError(['Erro ao carregar perfil']);
         console.error('Erro ao carregar perfil:', err);
@@ -130,6 +150,8 @@ function Profile() {
       try {
         const response = await api.get(`/api/users/${id}/followers`);
         setFollowersList(response.data);
+        // Busca avatares dos seguidores
+        response.data.forEach((follower: FollowUser) => fetchUserAvatar(follower.id));
       } catch (err) {
         console.error('Erro ao carregar seguidores:', err);
       }
@@ -139,6 +161,8 @@ function Profile() {
       try {
         const response = await api.get(`/api/users/${id}/following`);
         setFollowingList(response.data);
+        // Busca avatares dos seguidos
+        response.data.forEach((followed: FollowUser) => fetchUserAvatar(followed.id));
       } catch (err) {
         console.error('Erro ao carregar seguidos:', err);
       }
@@ -154,7 +178,7 @@ function Profile() {
     });
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
-  }, [id, loggedInUserId, isOwnProfile]);
+  }, [id, loggedInUserId, isOwnProfile, fetchUserAvatar]);
 
   const handleUpdate = async (type: 'bio' | 'avatar', file?: File) => {
     setError([]);
@@ -183,24 +207,26 @@ function Profile() {
       if (type === 'bio') setIsEditingBio(false);
       if (type === 'avatar' && avatarInputRef.current) {
         avatarInputRef.current.value = '';
+        // Atualiza cache de avatar
+        setUserAvatars(prev => ({ ...prev, [user!.id]: response.data.avatar || DEFAULT_AVATAR }));
       }
       toast.success(`${type === 'bio' ? 'Bio' : 'Avatar'} atualizado com sucesso!`);
     } catch (err: unknown) {
       if (avatarInputRef.current) avatarInputRef.current.value = '';
       if (typeof err === 'object' && err !== null && 'response' in err) {
-        const error = err as { response?: { status?: number; data?: { error?: string } } };
-        if (error.response?.status === 401) {
-          const errorMessage = error.response?.data?.error || 'Sessão expirada';
+        const errorObj = err as { response?: { status?: number; data?: { error?: string } } };
+        if (errorObj.response?.status === 401) {
+          const errorMessage = errorObj.response?.data?.error || 'Sessão expirada';
           toast.error(`${errorMessage}. Faça login novamente.`);
           navigate('/login');
           return;
         }
-        if (error.response?.status === 403) {
+        if (errorObj.response?.status === 403) {
           toast.error('Permissão negada. Verifique sua sessão.');
           navigate('/login');
           return;
         }
-        const errorMessage = error.response?.data?.error || 'Erro ao atualizar perfil';
+        const errorMessage = errorObj.response?.data?.error || 'Erro ao atualizar perfil';
         setError([errorMessage]);
         toast.error(errorMessage);
       } else {
@@ -227,8 +253,10 @@ function Profile() {
       // Atualiza listas
       const followersResponse = await api.get(`/api/users/${id}/followers`);
       setFollowersList(followersResponse.data);
+      followersResponse.data.forEach((follower: FollowUser) => fetchUserAvatar(follower.id));
       const followingResponse = await api.get(`/api/users/${id}/following`);
       setFollowingList(followingResponse.data);
+      followingResponse.data.forEach((followed: FollowUser) => fetchUserAvatar(followed.id));
       toast.success(response.data.message);
     } catch (err: unknown) {
       let errorMessage = 'Erro ao gerenciar follow';
@@ -358,8 +386,6 @@ function Profile() {
   };
 
   if (!user) return <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>Carregando...</div>;
-
-  const DEFAULT_AVATAR = 'http://localhost:5000/uploads/default-avatar.png';
 
   return (
     <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>
@@ -509,9 +535,17 @@ function Profile() {
                     </div>
                   )}
                   <div className={isDarkMode ? theme.profile.postMetaDark : theme.profile.postMeta}>
-                    <Link to={`/profile/${user.id}`} className={theme.profile.hashtagLink}>
-                      @{user.username}
-                    </Link>
+                    <div className="flex items-center">
+                      <img
+                        src={userAvatars[user.id] || DEFAULT_AVATAR}
+                        alt={`${user.username} avatar`}
+                        className="w-8 h-8 rounded-full object-cover mr-2"
+                        onError={(e) => (e.currentTarget.src = DEFAULT_AVATAR)}
+                      />
+                      <Link to={`/profile/${user.id}`} className={theme.profile.hashtagLink}>
+                        @{user.username}
+                      </Link>
+                    </div>
                     {isOwnProfile && (
                       <>
                         <button
@@ -605,9 +639,17 @@ function Profile() {
             {followersList.length > 0 ? (
               followersList.map((follower) => (
                 <div key={follower.id} className={isDarkMode ? theme.profile.postContainerDark : theme.profile.postContainer}>
-                  <Link to={`/profile/${follower.id}`} className={theme.profile.hashtagLink}>
-                    @{follower.username}
-                  </Link>
+                  <div className="flex items-center">
+                    <img
+                      src={userAvatars[follower.id] || DEFAULT_AVATAR}
+                      alt={`${follower.username} avatar`}
+                      className="w-6 h-6 rounded-full object-cover mr-2"
+                      onError={(e) => (e.currentTarget.src = DEFAULT_AVATAR)}
+                    />
+                    <Link to={`/profile/${follower.id}`} className={theme.profile.hashtagLink}>
+                      @{follower.username}
+                    </Link>
+                  </div>
                 </div>
               ))
             ) : (
@@ -622,9 +664,17 @@ function Profile() {
             {followingList.length > 0 ? (
               followingList.map((followed) => (
                 <div key={followed.id} className={isDarkMode ? theme.profile.postContainerDark : theme.profile.postContainer}>
-                  <Link to={`/profile/${followed.id}`} className={theme.profile.hashtagLink}>
-                    @{followed.username}
-                  </Link>
+                  <div className="flex items-center">
+                    <img
+                      src={userAvatars[followed.id] || DEFAULT_AVATAR}
+                      alt={`${followed.username} avatar`}
+                      className="w-6 h-6 rounded-full object-cover mr-2"
+                      onError={(e) => (e.currentTarget.src = DEFAULT_AVATAR)}
+                    />
+                    <Link to={`/profile/${followed.id}`} className={theme.profile.hashtagLink}>
+                      @{followed.username}
+                    </Link>
+                  </div>
                 </div>
               ))
             ) : (

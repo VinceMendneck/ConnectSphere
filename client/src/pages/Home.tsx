@@ -1,11 +1,11 @@
-import { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { PostContext } from '../context/PostContextType';
 import { AuthContext } from '../context/AuthContextType';
 import { theme } from '../styles/theme';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { type Post } from '../types/index';
-import type { AxiosError } from 'axios';
+import api from '../services/api';
 
 // Função para detectar hashtags
 const extractHashtags = (text: string) => {
@@ -13,6 +13,7 @@ const extractHashtags = (text: string) => {
 };
 
 function Home() {
+  const navigate = useNavigate();
   const context = useContext(PostContext);
   const authContext = useContext(AuthContext);
   if (!context || !authContext) {
@@ -30,22 +31,50 @@ function Home() {
   const [editContent, setEditContent] = useState('');
   const [editImages, setEditImages] = useState<File[]>([]);
   const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
-  const [removedIndices, setRemovedIndices] = useState<number[]>([]); // Estado para rastrear índices removidos
+  const [removedIndices, setRemovedIndices] = useState<number[]>([]);
+  const [userAvatars, setUserAvatars] = useState<Record<number, string>>({});
   const userId = user ? user.id : 0;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
 
+  const DEFAULT_AVATAR = 'http://localhost:5000/uploads/default-avatar.png';
+
+  const fetchUserAvatar = useCallback(
+    async (userId: number) => {
+      if (userAvatars[userId]) return; // Evita requisições redundantes
+      try {
+        const response = await api.get(`/api/users/${userId}`);
+        const avatar =
+          response.data.avatar && response.data.avatar.trim() !== ''
+            ? response.data.avatar
+            : DEFAULT_AVATAR;
+        setUserAvatars(prev => ({ ...prev, [userId]: avatar }));
+      } catch (err) {
+        console.error(`Erro ao buscar avatar do usuário ${userId}:`, err);
+        setUserAvatars(prev => ({ ...prev, [userId]: DEFAULT_AVATAR }));
+      }
+    },
+    [userAvatars]
+  );
+
   useEffect(() => {
     console.log('isDarkMode:', isDarkMode);
+    // Busca avatares dos usuários dos posts
+    posts.forEach((post) => fetchUserAvatar(post.user.id));
     const observer = new MutationObserver(() => {
       setIsDarkMode(document.documentElement.classList.contains('dark-theme'));
     });
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
-  }, [isDarkMode]);
+  }, [posts, isDarkMode, fetchUserAvatar]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast.error('Faça login para criar posts.');
+      navigate('/login');
+      return;
+    }
     if (!content.trim() && images.length === 0) {
       toast.warning('O post deve ter conteúdo ou pelo menos uma imagem.');
       return;
@@ -64,9 +93,24 @@ function Home() {
       if (fileInputRef.current) fileInputRef.current.value = '';
       imagePreviews.forEach(URL.revokeObjectURL);
       toast.success('Post criado com sucesso!');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao criar post:', error);
-      toast.error('Erro ao criar post.');
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { status?: number; data?: { error?: string } } }).response === 'object'
+      ) {
+        const err = error as { response?: { status?: number; data?: { error?: string } } };
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          toast.error('Sessão inválida. Faça login novamente.');
+          navigate('/login');
+        } else {
+          toast.error(err.response?.data?.error || 'Erro ao criar post.');
+        }
+      } else {
+        toast.error('Erro ao criar post.');
+      }
     }
   };
 
@@ -99,8 +143,7 @@ function Home() {
     setEditingPostId(post.id);
     setEditContent(post.content || '');
     setEditImages([]);
-    setRemovedIndices([]); // Resetar índices removidos ao entrar no modo de edição
-    // Inicializar com caminhos relativos e adicionar prefixo na renderização
+    setRemovedIndices([]);
     if (post.images && post.images.length > 0) {
       const relativePaths = post.images.map(image => image.replace('http://localhost:5000/', ''));
       setEditImagePreviews(relativePaths.map(path => `http://localhost:5000/${path}`));
@@ -157,19 +200,16 @@ function Home() {
     const formData = new FormData();
     formData.append('content', editContent);
 
-    // Enviar imagens existentes como caminhos relativos no campo existingImages
     const originalImages = posts.find(post => post.id === editingPostId)?.images || [];
     if (originalImages.length > 0) {
       const existingUrls = originalImages.map(image => image.replace('http://localhost:5000/', ''));
       formData.append('existingImages', JSON.stringify(existingUrls));
     }
 
-    // Enviar novas imagens como arquivos
     editImages.forEach((image) => {
       if (image) formData.append('images', image);
     });
 
-    // Enviar índices de imagens removidas
     if (removedIndices.length > 0) {
       formData.append('removedImages', JSON.stringify(removedIndices));
     }
@@ -178,12 +218,13 @@ function Home() {
     try {
       const response: Post = await updatePost(editingPostId, formData);
       console.log('Resposta da atualização - response:', response);
-      setEditImagePreviews(response.images || []); // Sincronizar com a resposta do backend
+      setEditImagePreviews(response.images || []);
       setPosts(prevPosts =>
         prevPosts.map((post: Post) =>
           post.id === editingPostId ? { ...post, ...response } : post
         )
       );
+      fetchUserAvatar(response.user.id);
       setEditingPostId(null);
       setEditContent('');
       setEditImages([]);
@@ -192,10 +233,19 @@ function Home() {
       if (editFileInputRef.current) editFileInputRef.current.value = '';
       editImagePreviews.forEach(URL.revokeObjectURL);
       toast.success('Post atualizado com sucesso!');
-    } catch (error) {
-      const axiosError = error as AxiosError;
-      console.error('Erro ao atualizar post:', axiosError.response?.data || axiosError.message);
-      toast.error('Erro ao atualizar post.');
+    } catch (error: unknown) {
+      console.error('Erro ao atualizar post:', error);
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { error?: string } } }).response === 'object'
+      ) {
+        const err = error as { response?: { data?: { error?: string } } };
+        toast.error(err.response?.data?.error || 'Erro ao atualizar post.');
+      } else {
+        toast.error('Erro ao atualizar post.');
+      }
     }
   };
 
@@ -455,9 +505,17 @@ function Home() {
                     </div>
                   )}
                   <div className={isDarkMode ? theme.home.postMetaDark : theme.home.postMeta}>
-                    <Link to={`/profile/${post.user.id}`} className={theme.home.hashtagLink}>
-                      @{post.user.username}
-                    </Link>
+                    <div className="flex items-center">
+                      <img
+                        src={userAvatars[post.user.id] || DEFAULT_AVATAR}
+                        alt={`${post.user.username} avatar`}
+                        className="w-8 h-8 rounded-full object-cover mr-2"
+                        onError={(e) => (e.currentTarget.src = DEFAULT_AVATAR)}
+                      />
+                      <Link to={`/profile/${post.user.id}`} className={theme.home.hashtagLink}>
+                        @{post.user.username}
+                      </Link>
+                    </div>
                     <button
                       onClick={async () => {
                         if (!user) {
