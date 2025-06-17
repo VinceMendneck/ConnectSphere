@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const path = require('path');
 const fs = require('fs/promises');
 const multer = require('multer');
+const jwt = require('jsonwebtoken');
 
 const prisma = new PrismaClient();
 
@@ -15,7 +16,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB para acomodar o arquivo de 12MB
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -28,9 +29,19 @@ const upload = multer({
 const authenticate = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Token não fornecido' });
-  req.user = { id: 1 }; // Substitua por validação JWT real
-  console.log('Usuário autenticado:', req.user);
-  next();
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
+    req.user = { id: decoded.userId, username: decoded.username };
+    console.log('Usuário autenticado:', req.user);
+    next();
+  } catch (error) {
+    console.error('Erro na validação do token:', error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expirado' });
+    }
+    return res.status(401).json({ error: 'Token inválido' });
+  }
 };
 
 const getUser = async (req, res) => {
@@ -46,7 +57,7 @@ const getUser = async (req, res) => {
       username: user.username,
       email: user.email,
       bio: user.bio,
-      avatar: user.avatar ? `http://localhost:5000/${user.avatar}` : null,
+      avatar: user.avatar ? `http://localhost:5000/${user.avatar}` : 'http://localhost:5000/uploads/default-avatar.png',
       posts: user.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
@@ -59,11 +70,11 @@ const getUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   const { id } = req.params;
-  const { bio } = req.body;
+  let { bio } = req.body;
   const userId = req.user?.id;
 
   try {
-    if (!userId) throw new Error('Usuário não autenticado');
+    if (!userId) return res.status(401).json({ error: 'Usuário não autenticado' });
     const user = await prisma.user.findUnique({
       where: { id: parseInt(id) },
       include: { posts: true },
@@ -71,12 +82,18 @@ const updateUser = async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
     if (user.id !== userId) return res.status(403).json({ error: 'Permissão negada' });
 
-    let avatarPath = user.avatar;
+    // Validação do campo bio
+    if (bio) {
+      bio = bio.trim().slice(0, 160);
+      if (bio.length === 0) bio = null; // Evita bio vazia
+    }
+
+    let avatarPath = user.avatar || 'uploads/default-avatar.png';
 
     if (req.file) {
       avatarPath = path.join('uploads', req.file.filename).replace(/\\/g, '/');
       console.log('Novo avatar salvo em:', avatarPath);
-      if (user.avatar) {
+      if (user.avatar && user.avatar !== 'uploads/default-avatar.png') {
         const oldAvatarPath = path.join(__dirname, '../', user.avatar);
         await fs.unlink(oldAvatarPath).catch(err => console.warn('Erro ao remover avatar antigo:', err));
       }
@@ -96,7 +113,7 @@ const updateUser = async (req, res) => {
       username: updatedUser.username,
       email: updatedUser.email,
       bio: updatedUser.bio,
-      avatar: updatedUser.avatar ? `http://localhost:5000/${updatedUser.avatar}` : null,
+      avatar: updatedUser.avatar ? `http://localhost:5000/${updatedUser.avatar}` : 'http://localhost:5000/uploads/default-avatar.png',
       posts: updatedUser.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
