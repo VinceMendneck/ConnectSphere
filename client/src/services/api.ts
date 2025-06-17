@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 
 const api = axios.create({
   baseURL: 'http://localhost:5000',
+  timeout: 10000, // Adicionado timeout de 10 segundos
 });
 
 api.interceptors.request.use(

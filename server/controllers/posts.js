@@ -5,7 +5,17 @@ const prisma = new PrismaClient();
 const getPosts = async (req, res) => {
   try {
     const posts = await prisma.post.findMany({
-      include: { user: true, likes: true },
+      include: {
+        user: true,
+        likes: true,
+        comments: {
+          include: {
+            user: true,
+            likes: true,
+            replies: { include: { user: true, likes: true } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
     res.json(
@@ -17,6 +27,24 @@ const getPosts = async (req, res) => {
         likes: post.likes.length,
         likedBy: post.likes.map(like => like.userId),
         images: post.images ? post.images.map(img => `http://localhost:5000/${img}`) : [],
+        comments: post.comments.map(comment => ({
+          id: comment.id,
+          content: comment.content,
+          user: { id: comment.user.id, username: comment.user.username },
+          postId: comment.postId,
+          parentId: comment.parentId,
+          likes: comment.likes.length,
+          likedBy: comment.likes.map(like => like.userId),
+          replies: comment.replies.map(reply => ({
+            id: reply.id,
+            content: reply.content,
+            user: { id: reply.user.id, username: reply.user.username },
+            likes: reply.likes.length,
+            likedBy: reply.likes.map(like => like.userId),
+            createdAt: reply.createdAt,
+          })),
+          createdAt: comment.createdAt,
+        })),
       }))
     );
   } catch (error) {
@@ -47,6 +75,7 @@ const createPost = async (req, res) => {
       likes: 0,
       likedBy: [],
       images: post.images ? post.images.map(img => `http://localhost:5000/${img}`) : [],
+      comments: [],
     });
   } catch (error) {
     console.error('Erro ao criar post:', error);
@@ -91,7 +120,17 @@ const getPostsByHashtag = async (req, res) => {
           contains: `#${tag}`,
         },
       },
-      include: { user: true, likes: true },
+      include: {
+        user: true,
+        likes: true,
+        comments: {
+          include: {
+            user: true,
+            likes: true,
+            replies: { include: { user: true, likes: true } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
     console.log('Posts encontrados para #', tag, ':', posts);
@@ -107,6 +146,24 @@ const getPostsByHashtag = async (req, res) => {
         likes: post.likes.length,
         likedBy: post.likes.map(like => like.userId),
         images: post.images ? post.images.map(img => `http://localhost:5000/${img}`) : [],
+        comments: post.comments.map(comment => ({
+          id: comment.id,
+          content: comment.content,
+          user: { id: comment.user.id, username: comment.user.username },
+          postId: comment.postId,
+          parentId: comment.parentId,
+          likes: comment.likes.length,
+          likedBy: comment.likes.map(like => like.userId),
+          replies: comment.replies.map(reply => ({
+            id: reply.id,
+            content: reply.content,
+            user: { id: reply.user.id, username: reply.user.username },
+            likes: reply.likes.length,
+            likedBy: reply.likes.map(like => like.userId),
+            createdAt: reply.createdAt,
+          })),
+          createdAt: comment.createdAt,
+        })),
       }))
     );
   } catch (error) {
@@ -140,7 +197,7 @@ const deletePost = async (req, res) => {
 
 const updatePost = async (req, res) => {
   const { id } = req.params;
-  const { content } = req.body; // Receber content como JSON
+  const { content } = req.body;
   const userId = req.user.id;
   const images = req.files ? req.files.map(file => file.path.replace(/\\/g, '/')) : [];
   const existingImages = req.body.existingImages ? JSON.parse(req.body.existingImages) : [];
@@ -159,11 +216,9 @@ const updatePost = async (req, res) => {
       return res.status(403).json({ error: 'Você não tem permissão para editar este post' });
     }
 
-    // Normalizar existingImages para caminhos relativos
     const validExistingImages = existingImages.map(img => img.replace('http://localhost:5000/', ''));
     console.log('Valid existing images:', validExistingImages);
 
-    // Preservar imagens existentes se não houver remoções ou novas imagens
     let remainingImages = validExistingImages;
     if (removedImages.length > 0) {
       remainingImages = validExistingImages.filter((img, i) => {
@@ -180,7 +235,7 @@ const updatePost = async (req, res) => {
       where: { id: parseInt(id) },
       data: {
         content: content || post.content,
-        images: allImages.length > 0 ? allImages : post.images, // Preservar images se não houver mudanças
+        images: allImages.length > 0 ? allImages : post.images,
       },
       include: { user: true, likes: true },
     });

@@ -4,7 +4,8 @@ import { AuthContext } from '../context/AuthContextType';
 import { theme } from '../styles/theme';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { type Post } from '../types/index';
+import { type Post, type Comment } from '../types/index';
+import { AxiosError } from 'axios';
 import api from '../services/api';
 
 // Função para detectar hashtags
@@ -19,7 +20,7 @@ function Home() {
   if (!context || !authContext) {
     throw new Error('PostContext or AuthContext must be used within their respective Providers');
   }
-  const { posts, setPosts, addPost, toggleLike, deletePost, updatePost } = context;
+  const { posts, setPosts, addPost, toggleLike, deletePost, updatePost, addComment, toggleCommentLike, updateComment, deleteComment } = context;
   const { user } = authContext;
   const [content, setContent] = useState('');
   const [images, setImages] = useState<File[]>([]);
@@ -33,6 +34,11 @@ function Home() {
   const [editImagePreviews, setEditImagePreviews] = useState<string[]>([]);
   const [removedIndices, setRemovedIndices] = useState<number[]>([]);
   const [userAvatars, setUserAvatars] = useState<Record<number, string>>({});
+  const [showCommentInput, setShowCommentInput] = useState<Record<number, boolean>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
+  const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentContent, setEditCommentContent] = useState<string>('');
   const userId = user ? user.id : 0;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -41,7 +47,7 @@ function Home() {
 
   const fetchUserAvatar = useCallback(
     async (userId: number) => {
-      if (userAvatars[userId]) return; // Evita requisições redundantes
+      if (userAvatars[userId]) return;
       try {
         const response = await api.get(`/api/users/${userId}`);
         const avatar =
@@ -59,8 +65,13 @@ function Home() {
 
   useEffect(() => {
     console.log('isDarkMode:', isDarkMode);
-    // Busca avatares dos usuários dos posts
-    posts.forEach((post) => fetchUserAvatar(post.user.id));
+    posts.forEach((post) => {
+      fetchUserAvatar(post.user.id);
+      post.comments?.forEach((comment) => {
+        fetchUserAvatar(comment.user.id);
+        comment.replies?.forEach((reply) => fetchUserAvatar(reply.user.id));
+      });
+    });
     const observer = new MutationObserver(() => {
       setIsDarkMode(document.documentElement.classList.contains('dark-theme'));
     });
@@ -84,7 +95,7 @@ function Home() {
     images.forEach((image) => {
       if (image) formData.append('images', image);
     });
-    console.log('FormData enviado:', Array.from(formData.entries()));
+    console.log('FormData enviado para post:', Array.from(formData.entries()));
     try {
       await addPost(formData);
       setContent('');
@@ -95,18 +106,12 @@ function Home() {
       toast.success('Post criado com sucesso!');
     } catch (error: unknown) {
       console.error('Erro ao criar post:', error);
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'response' in error &&
-        typeof (error as { response?: { status?: number; data?: { error?: string } } }).response === 'object'
-      ) {
-        const err = error as { response?: { status?: number; data?: { error?: string } } };
-        if (err.response?.status === 401 || err.response?.status === 403) {
+      if (error instanceof AxiosError && error.response) {
+        if (error.response.status === 401 || error.response.status === 403) {
           toast.error('Sessão inválida. Faça login novamente.');
           navigate('/login');
         } else {
-          toast.error(err.response?.data?.error || 'Erro ao criar post.');
+          toast.error(error.response.data?.error || 'Erro ao criar post.');
         }
       } else {
         toast.error('Erro ao criar post.');
@@ -131,11 +136,21 @@ function Home() {
   const handleDeletePost = async (postId: number) => {
     if (!confirm('Tem certeza que deseja excluir este post?')) return;
     try {
+      console.log('Excluindo post:', postId);
       await deletePost(postId);
       toast.success('Post excluído com sucesso!');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Erro ao excluir post:', error);
-      toast.error('Erro ao excluir post.');
+      if (error instanceof AxiosError && error.response) {
+        if (error.response.status === 401 || error.response.status === 403) {
+          toast.error('Sessão inválida. Faça login novamente.');
+          navigate('/login');
+        } else {
+          toast.error(error.response.data?.error || 'Erro ao excluir post.');
+        }
+      } else {
+        toast.error('Erro ao excluir post.');
+      }
     }
   };
 
@@ -235,18 +250,333 @@ function Home() {
       toast.success('Post atualizado com sucesso!');
     } catch (error: unknown) {
       console.error('Erro ao atualizar post:', error);
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'response' in error &&
-        typeof (error as { response?: { data?: { error?: string } } }).response === 'object'
-      ) {
-        const err = error as { response?: { data?: { error?: string } } };
-        toast.error(err.response?.data?.error || 'Erro ao atualizar post.');
+      if (error instanceof AxiosError && error.response) {
+        if (error.response.status === 401 || error.response.status === 403) {
+          toast.error('Sessão inválida. Faça login novamente.');
+          navigate('/login');
+        } else {
+          toast.error(error.response.data?.error || 'Erro ao atualizar post.');
+        }
       } else {
         toast.error('Erro ao atualizar post.');
       }
     }
+  };
+
+  const handleCommentSubmit = async (postId: number, e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      toast.error('Faça login para comentar.');
+      navigate('/login');
+      return;
+    }
+    const commentContent = commentInputs[postId]?.trim();
+    if (!commentContent) {
+      toast.warning('O comentário não pode estar vazio.');
+      return;
+    }
+    try {
+      console.log('Enviando comentário:', { postId, content: commentContent });
+      await addComment(postId, commentContent);
+      setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+      setShowCommentInput(prev => ({ ...prev, [postId]: false }));
+      toast.success('Comentário adicionado com sucesso!');
+    } catch (error: unknown) {
+      console.error('Erro ao enviar comentário:', error);
+      if (error instanceof AxiosError && error.response) {
+        if (error.response.status === 401 || error.response.status === 403) {
+          toast.error('Sessão inválida. Faça login novamente.');
+          navigate('/login');
+        } else {
+          toast.error(error.response.data?.error || 'Erro ao adicionar comentário.');
+        }
+      } else {
+        toast.error('Erro ao adicionar comentário.');
+      }
+    }
+  };
+
+  const handleReplySubmit = async (postId: number, parentId: number, e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      toast.error('Faça login para responder.');
+      navigate('/login');
+      return;
+    }
+    const replyContent = replyInputs[`${postId}-${parentId}`]?.trim();
+    if (!replyContent) {
+      toast.warning('A resposta não pode estar vazia.');
+      return;
+    }
+    try {
+      console.log('Enviando resposta:', { postId, parentId, content: replyContent });
+      await addComment(postId, replyContent, parentId);
+      setReplyInputs(prev => ({ ...prev, [`${postId}-${parentId}`]: '' }));
+      toast.success('Resposta adicionada com sucesso!');
+    } catch (error: unknown) {
+      console.error('Erro ao enviar resposta:', error);
+      if (error instanceof AxiosError && error.response) {
+        if (error.response.status === 401 || error.response.status === 403) {
+          toast.error('Sessão inválida. Faça login novamente.');
+          navigate('/login');
+        } else {
+          toast.error(error.response.data?.error || 'Erro ao adicionar resposta.');
+        }
+      } else {
+        toast.error('Erro ao adicionar resposta.');
+      }
+    }
+  };
+
+  const handleEditComment = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditCommentContent(comment.content);
+  };
+
+  const handleUpdateComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      toast.error('Faça login para editar comentários.');
+      navigate('/login');
+      return;
+    }
+    if (!editingCommentId) return;
+    const content = editCommentContent.trim();
+    if (!content) {
+      toast.warning('O comentário não pode estar vazio.');
+      return;
+    }
+    try {
+      console.log('Atualizando comentário:', { commentId: editingCommentId, content });
+      await updateComment(editingCommentId, content);
+      setEditingCommentId(null);
+      setEditCommentContent('');
+      toast.success('Comentário atualizado com sucesso!');
+    } catch (error: unknown) {
+      console.error('Erro ao atualizar comentário:', error);
+      if (error instanceof AxiosError && error.response) {
+        if (error.response.status === 401 || error.response.status === 403) {
+          toast.error('Sessão inválida. Faça login novamente.');
+          navigate('/login');
+        } else {
+          toast.error(error.response.data?.error || 'Erro ao atualizar comentário.');
+        }
+      } else {
+        toast.error('Erro ao atualizar comentário.');
+      }
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!user) {
+      toast.error('Faça login para excluir comentários.');
+      navigate('/login');
+      return;
+    }
+    if (!confirm('Tem certeza que deseja excluir este comentário?')) return;
+    try {
+      console.log('Excluindo comentário:', commentId);
+      await deleteComment(commentId);
+      toast.success('Comentário excluído com sucesso!');
+    } catch (error: unknown) {
+      console.error('Erro ao excluir comentário:', error);
+      if (error instanceof AxiosError && error.response) {
+        if (error.response.status === 401 || error.response.status === 403) {
+          toast.error('Sessão inválida. Faça login novamente.');
+          navigate('/login');
+        } else {
+          toast.error(error.response.data?.error || 'Erro ao excluir comentário.');
+        }
+      } else {
+        toast.error('Erro ao excluir comentário.');
+      }
+    }
+  };
+
+  const renderComment = (comment: Comment, post: Post, level: number = 0) => {
+    return (
+      <div key={comment.id} className={`ml-${level * 4} mt-2 relative`}>
+        <div className="flex items-center">
+          <img
+            src={userAvatars[comment.user.id] || DEFAULT_AVATAR}
+            alt={`${comment.user.username} avatar`}
+            className="w-8 h-8 rounded-full object-cover mr-2"
+            onError={(e) => (e.currentTarget.src = DEFAULT_AVATAR)}
+          />
+          <Link to={`/profile/${comment.user.id}`} className={theme.home.hashtagLink}>
+            @{comment.user.username}
+          </Link>
+        </div>
+        {editingCommentId === comment.id ? (
+          <form onSubmit={handleUpdateComment} className="mt-2">
+            <textarea
+              value={editCommentContent}
+              onChange={(e) => setEditCommentContent(e.target.value)}
+              className={isDarkMode ? theme.home.textareaDark : theme.home.textarea}
+            />
+            <div className="flex space-x-2 mt-1">
+              <button
+                type="submit"
+                className={isDarkMode ? theme.auth.buttonDark : theme.auth.button}
+              >
+                Salvar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingCommentId(null);
+                  setEditCommentContent('');
+                }}
+                className={isDarkMode ? theme.profile.cancelButtonDark : theme.profile.cancelButton}
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <p className={isDarkMode ? theme.home.postContentDark : theme.home.postContent}>
+              {comment.content}
+            </p>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  if (!user) {
+                    toast.error('Faça login para curtir comentários.');
+                    navigate('/login');
+                    return;
+                  }
+                  toggleCommentLike(comment.id).catch(err =>
+                    toast.error(err.response?.data?.error || 'Erro ao curtir comentário.')
+                  );
+                }}
+                className={comment.likedBy.includes(userId)
+                  ? isDarkMode ? theme.home.likedButtonDark : theme.home.likedButton
+                  : isDarkMode ? theme.home.likeButtonDark : theme.home.likeButton}
+              >
+                <svg
+                  className="w-4 h-4 mr-1"
+                  fill={comment.likedBy.includes(userId) ? 'currentColor' : 'none'}
+                  stroke={comment.likedBy.includes(userId) ? 'none' : 'currentColor'}
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                {comment.likes}
+              </button>
+              <button
+                onClick={() => {
+                  if (!user) {
+                    toast.error('Faça login para responder.');
+                    navigate('/login');
+                    return;
+                  }
+                  setReplyInputs(prev => ({
+                    ...prev,
+                    [`${post.id}-${comment.id}`]: prev[`${post.id}-${comment.id}`] || '',
+                  }));
+                }}
+                className="text-blue-500 hover:text-blue-700"
+              >
+                Responder
+              </button>
+            </div>
+            {user && (user.id === comment.user.id || user.id === post.user.id) && (
+              <div className="absolute top-0 right-0 flex space-x-2">
+                {user.id === comment.user.id && (
+                  <button
+                    onClick={() => handleEditComment(comment)}
+                    className="text-blue-500 hover:text-blue-700 transition-colors"
+                    title="Editar comentário"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDeleteComment(comment.id)}
+                  className="text-red-500 hover:text-red-700 transition-colors"
+                  title="Excluir comentário"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+            {replyInputs[`${post.id}-${comment.id}`] !== undefined && (
+              <form
+                onSubmit={(e) => handleReplySubmit(post.id, comment.id, e)}
+                className="mt-2"
+              >
+                <textarea
+                  value={replyInputs[`${post.id}-${comment.id}`] || ''}
+                  onChange={(e) =>
+                    setReplyInputs(prev => ({
+                      ...prev,
+                      [`${post.id}-${comment.id}`]: e.target.value,
+                    }))
+                  }
+                  className={isDarkMode ? theme.home.textareaDark : theme.home.textarea}
+                  placeholder="Escreva uma resposta..."
+                />
+                <div className="flex space-x-2 mt-1">
+                  <button
+                    type="submit"
+                    className={isDarkMode ? theme.auth.buttonDark : theme.auth.button}
+                  >
+                    Enviar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setReplyInputs(prev => {
+                        const newInputs = { ...prev };
+                        delete newInputs[`${post.id}-${comment.id}`];
+                        return newInputs;
+                      })
+                    }
+                    className={isDarkMode ? theme.profile.cancelButtonDark : theme.profile.cancelButton}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            )}
+            {comment.replies?.map(reply => renderComment(reply, post, level + 1))}
+          </>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -517,16 +847,14 @@ function Home() {
                       </Link>
                     </div>
                     <button
-                      onClick={async () => {
+                      onClick={() => {
                         if (!user) {
                           console.log('Usuário não autenticado, login necessário. userId:', userId, 'user:', user);
                           return;
                         }
-                        try {
-                          await toggleLike(post.id);
-                        } catch (error) {
-                          console.error('Erro ao curtir/descurtir:', error);
-                        }
+                        toggleLike(post.id).catch(err =>
+                          toast.error(err.response?.data?.error || 'Erro ao curtir post.')
+                        );
                       }}
                       className={post.likedBy?.includes(userId)
                         ? isDarkMode ? theme.home.likedButtonDark : theme.home.likedButton
@@ -548,6 +876,55 @@ function Home() {
                       </svg>
                       {post.likes}
                     </button>
+                  </div>
+                  <div className="mt-2">
+                    <button
+                      onClick={() => {
+                        if (!user) {
+                          toast.error('Faça login para comentar.');
+                          navigate('/login');
+                          return;
+                        }
+                        setShowCommentInput(prev => ({ ...prev, [post.id]: !prev[post.id] }));
+                      }}
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      Comentar
+                    </button>
+                    {showCommentInput[post.id] && (
+                      <form
+                        onSubmit={(e) => handleCommentSubmit(post.id, e)}
+                        className="mb-2 mt-2"
+                      >
+                        <textarea
+                          value={commentInputs[post.id] || ''}
+                          onChange={(e) =>
+                            setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))
+                          }
+                          className={isDarkMode ? theme.home.textareaDark : theme.home.textarea}
+                          placeholder="Adicione um comentário..."
+                        />
+                        <div className="flex space-x-2 mt-1">
+                          <button
+                            type="submit"
+                            className={isDarkMode ? theme.auth.buttonDark : theme.auth.button}
+                          >
+                            Enviar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCommentInput(prev => ({ ...prev, [post.id]: false }));
+                              setCommentInputs(prev => ({ ...prev, [post.id]: '' }));
+                            }}
+                            className={isDarkMode ? theme.profile.cancelButtonDark : theme.profile.cancelButton}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                    {post.comments?.map(comment => renderComment(comment, post))}
                   </div>
                 </>
               )}

@@ -8,29 +8,30 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  username  String   @unique
-  bio       String?
-  avatar    String?
-  posts     Post[]
-  likes     Like[]
-  comments  Comment[]
-  followers Follows[] @relation("Following")
-  following Follows[] @relation("Follower")
-  createdAt DateTime @default(now())
+  id          Int          @id @default(autoincrement())
+  email       String       @unique
+  password    String
+  username    String       @unique
+  bio         String?
+  avatar      String?
+  posts       Post[]
+  likes       Like[]
+  comments    Comment[]
+  commentLikes CommentLike[]
+  followers   Follows[]    @relation("Following")
+  following   Follows[]    @relation("Follower")
+  createdAt   DateTime     @default(now())
 }
 
 model Post {
-  id        Int      @id @default(autoincrement())
+  id        Int         @id @default(autoincrement())
   content   String
-  images    Json?    // Alterado de image para images
+  images    Json?       // Alterado de String[] para Json?
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
   likes     Like[]
   comments  Comment[]
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
 }
 
 model Like {
@@ -43,20 +44,33 @@ model Like {
 }
 
 model Comment {
-  id        Int      @id @default(autoincrement())
+  id        Int         @id @default(autoincrement())
   content   String
   userId    Int
+  user      User        @relation(fields: [userId], references: [id])
   postId    Int
+  post      Post        @relation(fields: [postId], references: [id])
+  parentId  Int?        // Para respostas
+  parent    Comment?    @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[]   @relation("CommentReplies")
+  likes     CommentLike[]
+  createdAt DateTime    @default(now())
+}
+
+model CommentLike {
+  id        Int      @id @default(autoincrement())
+  userId    Int
   user      User     @relation(fields: [userId], references: [id])
-  post      Post     @relation(fields: [postId], references: [id])
+  commentId Int
+  comment   Comment  @relation(fields: [commentId], references: [id])
   createdAt DateTime @default(now())
 }
 
 model Follows {
   followerId  Int
   followingId Int
-  follower    User @relation("Follower", fields: [followerId], references: [id])
-  following   User @relation("Following", fields: [followingId], references: [id])
+  follower    User     @relation("Follower", fields: [followerId], references: [id])
+  following   User     @relation("Following", fields: [followingId], references: [id])
   createdAt   DateTime @default(now())
   @@id([followerId, followingId])
   @@unique([followerId, followingId])

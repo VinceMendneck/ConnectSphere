@@ -4,12 +4,12 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const postRoutes = require('./routes/posts');
+const commentRoutes = require('./routes/comments'); // Adiciona rota de comentários
 const path = require('path');
-const fs = require('fs').promises; // Use fs.promises para operações assíncronas
+const fs = require('fs').promises;
 
 dotenv.config();
 
-// Verifica se JWT_SECRET está definido
 if (!process.env.JWT_SECRET) {
   console.error('Erro: JWT_SECRET não está definido no arquivo .env');
   process.exit(1);
@@ -17,7 +17,6 @@ if (!process.env.JWT_SECRET) {
 
 const app = express();
 
-// Configuração do CORS
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',')
   : ['http://localhost:5173'];
@@ -36,14 +35,12 @@ app.use(cors({
 
 app.use(express.json());
 
-// Configuração do diretório de uploads
 const uploadDir = path.join(__dirname, 'Uploads');
 const defaultAvatarPath = path.join(uploadDir, 'default-avatar.png');
 
 (async () => {
   try {
     await fs.mkdir(uploadDir, { recursive: true });
-    // Verifica se default-avatar.png existe; se não, loga um aviso
     try {
       await fs.access(defaultAvatarPath);
     } catch {
@@ -59,23 +56,21 @@ app.use('/uploads', express.static(uploadDir));
 
 console.log('Iniciando o servidor Express...');
 
-// Middleware de logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from ${req.headers.origin || 'unknown'}`);
   next();
 });
 
-// Rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/comments', commentRoutes); // Adiciona rota de comentários
 
 app.get('/test', (req, res) => {
   console.log('Rota /test acessada');
   res.json({ message: 'Backend está funcionando' });
 });
 
-// Middleware de erro global
 app.use((err, req, res, next) => {
   console.error(`[${new Date().toISOString()}] Erro no servidor:`, err);
 
@@ -104,6 +99,6 @@ app.listen(PORT, (err) => {
     process.exit(1);
   }
   console.log(`Server running on port ${PORT}`);
-  console.log(`Uploads disponíveis em: http://localhost:${PORT}/uploads`);
+  console.log(`Uploads disponíveis em: http://localhost:${PORT}/Uploads`);
   console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
 });
