@@ -1,21 +1,22 @@
 import { Link } from 'react-router-dom';
+import { theme } from '../styles/theme';
 
 export function renderHashtags(content: string) {
-  const hashtagRegex = /(#\w+)/g; // Regex para detectar hashtags
-  const parts = content.split(hashtagRegex); // Divide o texto em partes
+  const hashtagRegex = /(#\w+)/g;
+  const parts = content.split(hashtagRegex);
   return parts.map((part, index) => {
     if (part.match(hashtagRegex)) {
-      const tag = part.slice(1); // Remove o símbolo # da hashtag
+      const tag = part.slice(1);
       return (
         <Link
           key={index}
           to={`/hashtag/${tag}`}
-          className="text-blue-500 hover:underline"
+          className={theme.home.hashtagLink}
         >
           {part}
         </Link>
       );
     }
-    return part; // Mantém o texto normal como está
+    return part;
   });
 }
