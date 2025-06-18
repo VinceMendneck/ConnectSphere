@@ -4,7 +4,7 @@ import Register from './pages/Register';
 import Login from './pages/Login';
 import HashtagPage from './pages/HashtagPage';
 import Profile from './pages/Profile';
-import Sidebar from './components/Sidebar';
+import Layout from './Layout';
 import { AuthProvider } from './context/AuthContext';
 import { PostProvider } from './context/PostContext';
 import { Component, type ReactNode, useLayoutEffect, useState } from 'react';
@@ -45,19 +45,16 @@ function App() {
       <AuthProvider>
         <PostProvider>
           <ErrorBoundary>
-            <div className="flex min-h-screen">
-              <Sidebar />
-              <div className="flex-1 ml-64">
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/register" element={<Register />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/hashtag/:tag" element={<HashtagPage />} />
-                  <Route path="/profile/:id" element={<Profile />} />
-                  <Route path="*" element={<Navigate to="/" />} />
-                </Routes>
-              </div>
-            </div>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/hashtag/:tag" element={<HashtagPage />} />
+                <Route path="/profile/:id" element={<Profile />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Route>
+            </Routes>
           </ErrorBoundary>
         </PostProvider>
       </AuthProvider>
