@@ -1,17 +1,14 @@
 import { useState, useRef, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PostContext } from '../../context/PostContextType';
 import { AuthContext } from '../../context/AuthContextType';
 import { theme } from '../../styles/theme';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { AxiosError } from 'axios';
+import api from '../../services/api';
+import { extractHashtags } from '../../utils/extractHashtags';
+import { handleApiError } from '../../utils/handleApiError';
 
-interface PostFormProps {
-  isDarkMode: boolean;
-}
-
-function PostForm({ isDarkMode }: PostFormProps) {
-  const navigate = useNavigate();
+function PostForm({ isDarkMode }: { isDarkMode: boolean }) {
   const postContext = useContext(PostContext);
   const authContext = useContext(AuthContext);
   if (!postContext || !authContext) {
@@ -23,6 +20,7 @@ function PostForm({ isDarkMode }: PostFormProps) {
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,50 +29,49 @@ function PostForm({ isDarkMode }: PostFormProps) {
       navigate('/login');
       return;
     }
-    if (!content.trim() && images.length === 0) {
-      toast.warning('O post deve ter conteúdo ou pelo menos uma imagem.');
+    if (!content.trim()) {
+      toast.error('O conteúdo do post não pode estar vazio.');
       return;
     }
     const formData = new FormData();
     formData.append('content', content);
-    images.forEach((image) => {
-      if (image) formData.append('images', image);
-    });
+    extractHashtags(content).forEach((hashtag) => formData.append('hashtags[]', hashtag));
+    images.forEach((image) => formData.append('images', image));
+
     try {
-      await addPost(formData);
+      const response = await api.post('/api/posts', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      addPost(response.data);
       setContent('');
       setImages([]);
       setImagePreviews([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      imagePreviews.forEach(URL.revokeObjectURL);
       toast.success('Post criado com sucesso!');
     } catch (error: unknown) {
-      console.error('Erro ao criar post:', error);
-      if (error instanceof AxiosError && error.response) {
-        if (error.response.status === 401 || error.response.status === 403) {
-          toast.error('Sessão inválida. Faça login novamente.');
-          navigate('/login');
-        } else {
-          toast.error(error.response.data?.error || 'Erro ao criar post.');
-        }
-      } else {
-        toast.error('Erro ao criar post.');
-      }
+      handleApiError(error, navigate, 'Erro ao criar post.');
     }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files).slice(0, 4 - images.length);
-      if (images.length + newFiles.length > 4) {
-        toast.warning('Você pode adicionar até 4 imagens por post.');
-        return;
-      }
-      const validFiles = newFiles.filter(file => file.type.startsWith('image/'));
-      setImages([...images, ...validFiles]);
-      const newPreviews = validFiles.map(file => URL.createObjectURL(file));
-      setImagePreviews([...imagePreviews, ...newPreviews]);
+    const files = Array.from(e.target.files || []);
+    if (files.length + images.length > 4) {
+      toast.error('Você pode enviar no máximo 4 imagens.');
+      return;
     }
+    const newImages = files.filter((file) => file.type.startsWith('image/'));
+    if (newImages.length !== files.length) {
+      toast.error('Apenas arquivos de imagem são permitidos.');
+    }
+    setImages((prev) => [...prev, ...newImages]);
+    const previews = newImages.map((file) => URL.createObjectURL(file));
+    setImagePreviews((prev) => [...prev, ...previews]);
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -83,28 +80,11 @@ function PostForm({ isDarkMode }: PostFormProps) {
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
+          placeholder="No que você está pensando?"
+          maxLength={280}
           className={isDarkMode ? theme.home.textareaDark : theme.home.textarea}
-          placeholder="O que está acontecendo?"
         />
-        {imagePreviews.length > 0 && (
-          <div className="max-w-[320px] w-full mt-2 p-1 ml-0">
-            <div className="grid grid-cols-2 gap-2">
-              {imagePreviews.map((preview, index) => (
-                <div key={index} className="relative w-[150px] h-[150px]">
-                  <img
-                    src={preview}
-                    alt={`Preview ${index + 1}`}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className={`${theme.home.postFormFooter} flex items-center justify-between`}>
-          <span className={isDarkMode ? theme.home.charCountDark : theme.home.charCount}>
-            {280 - content.length} caracteres restantes
-          </span>
+        <div className={theme.home.postFormFooter}>
           <div className="flex items-center space-x-2">
             <input
               type="file"
@@ -113,34 +93,75 @@ function PostForm({ isDarkMode }: PostFormProps) {
               ref={fileInputRef}
               onChange={handleImageUpload}
               className="hidden"
-              id="imageUpload"
+              id="image-upload"
             />
-            <label
-              htmlFor="imageUpload"
-              className={isDarkMode ? theme.home.imageUploadButton : theme.home.imageUploadButtonLight}
-            >
-              <svg
-                className={`w-5 h-5 ${isDarkMode ? 'text-white hover:text-[#e2e8f0]' : 'text-[#213547] hover:text-[#3e4a5a]'}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
+            <label htmlFor="image-upload">
+              <button
+                type="button"
+                className={isDarkMode ? theme.home.imageUploadButton : theme.home.imageUploadButtonLight}
+                onClick={() => fileInputRef.current?.click()}
               >
-                <rect x="2" y="2" width="20" height="20" rx="2" stroke="currentColor" fill="none" />
-                <path
-                  d="M5 7h14M5 12h7m-7 5h14"
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
                   stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                />
-              </svg>
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </button>
             </label>
-            <button type="submit" className={isDarkMode ? theme.home.postButtonDark : theme.home.postButton}>
-              <span className={isDarkMode ? 'text-white hover:text-[#e2e8f0]' : 'text-[#213547] hover:text-[#3e4a5a]'}>Postar</span>
-            </button>
+            <span className={isDarkMode ? theme.home.charCountDark : theme.home.charCount}>
+              {content.length}/280
+            </span>
           </div>
+          <button
+            type="submit"
+            className={isDarkMode ? theme.home.postButtonDark : theme.home.postButton}
+            disabled={!content.trim()}
+          >
+            Postar
+          </button>
         </div>
+        {imagePreviews.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {imagePreviews.map((preview, index) => (
+              <div key={index} className="relative w-[150px] h-[150px]">
+                <img
+                  src={preview}
+                  alt={`Pré-visualização ${index + 1}`}
+                  className="w-full h-full object-cover rounded-lg"
+                />
+                <button
+                  type="button"
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                  onClick={() => handleRemoveImage(index)}
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </form>
     </div>
   );
