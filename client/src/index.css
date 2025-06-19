@@ -12,8 +12,8 @@
 
   /* Variáveis para personalização */
   --sidebar-text: #213547;
-  --sidebar-text-hover: #1e40af;
-  --sidebar-hover-bg: #f3f4f6;
+  --sidebar-text-hover: #4591d6;
+  --sidebar-hover-bg: transparent;
   --sidebar-dark-text: #c3cad3;
   --sidebar-dark-text-hover: #91b9e9;
   --sidebar-dark-hover-bg: #333333;
@@ -23,7 +23,7 @@
   --button-primary-hover-bg: #444444;
   --toggle-button-bg: #f9f9f9;
   --toggle-button-text: #213547;
-  --toggle-button-text-hover: #1e40af;
+  --toggle-button-text-hover: #4591d6;
   --toggle-button-hover-bg: #e5e7eb;
   --toggle-button-dark-bg: #333333;
   --toggle-button-dark-text: #ffffff;
@@ -49,17 +49,7 @@
   min-height: 100vh;
 }
 
-a {
-  font-weight: 500;
-  color: #3b82f6;
-  text-decoration: none;
-}
-.light-theme a:hover {
-  color: #1d4ed8;
-}
-.dark-theme a:hover {
-  color: #2563eb;
-}
+
 
 h1 {
   font-size: 2.5rem;
@@ -77,23 +67,26 @@ button {
   background-color: transparent;
 }
 
-.light-theme nav button,
-.light-theme nav a {
-  background-color: transparent;
-  color: var(--sidebar-text);
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  display: block;
+/* Estilos para o sidebar no modo claro */
+.light-theme nav a,
+.light-theme nav button {
+  font-weight: 500;
+  color: var(--sidebar-text) !important; /* Força a cor base */
   text-decoration: none;
-  text-align: left;
-}
-.light-theme nav button:hover,
-.light-theme nav a:hover {
-  background-color: var(--sidebar-hover-bg);
-  color: var(--sidebar-text-hover);
+  background: var(--sidebar-hover-bg);
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: color 0.2s;
 }
 
+.light-theme nav a:hover,
+.light-theme nav button:hover {
+  color: var(--sidebar-text-hover) !important; /* Força o hover */
+}
+
+/* Estilos para o sidebar no modo escuro (já existente) */
 .dark-theme nav button,
 .dark-theme nav a {
   background-color: transparent;
