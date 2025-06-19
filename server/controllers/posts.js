@@ -1,6 +1,8 @@
 const { PrismaClient } = require('@prisma/client');
 
+console.log('Inicializando PrismaClient...');
 const prisma = new PrismaClient();
+console.log('PrismaClient inicializado com sucesso');
 
 const getPosts = async (req, res) => {
   try {
