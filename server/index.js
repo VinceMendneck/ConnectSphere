@@ -48,7 +48,6 @@ const defaultAvatarPath = path.join(uploadDir, 'default-avatar.png');
     }
   } catch (err) {
     console.error(`Erro ao criar diretório ${uploadDir}:`, err);
-    process.exit(1);
   }
 })();
 
