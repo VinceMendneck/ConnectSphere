@@ -12,7 +12,6 @@ dotenv.config();
 
 if (!process.env.JWT_SECRET) {
   console.error('Erro: JWT_SECRET não está definido no arquivo .env');
-  process.exit(1);
 }
 
 const app = express();
