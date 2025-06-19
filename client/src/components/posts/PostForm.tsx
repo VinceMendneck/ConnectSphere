@@ -120,7 +120,7 @@ function PostForm({ isDarkMode }: PostFormProps) {
               className={isDarkMode ? theme.home.imageUploadButton : theme.home.imageUploadButtonLight}
             >
               <svg
-                className={`w-5 h-5 ${isDarkMode ? 'text-white hover:text-[#e2e8f0]' : 'text-[#213547] hover:text-[#3e4a5a]'}`}
+                className={`w-5 h-5 ${isDarkMode ? 'text-white hover:text-[#e2e8f0]' : 'text-[#213547] hover:text-[#4591d6]'}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -137,7 +137,7 @@ function PostForm({ isDarkMode }: PostFormProps) {
               </svg>
             </label>
             <button type="submit" className={isDarkMode ? theme.home.postButtonDark : theme.home.postButton}>
-              <span className={isDarkMode ? 'text-white hover:text-[#e2e8f0]' : 'text-[#213547] hover:text-[#3e4a5a]'}>Postar</span>
+              <span className={isDarkMode ? 'text-white hover:text-[#e2e8f0]' : 'text-[#213547] hover:text-[#4591d6]'}>Postar</span>
             </button>
           </div>
         </div>

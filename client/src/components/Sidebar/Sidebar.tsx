@@ -1,9 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useContext, useState } from 'react';
-import { AuthContext } from '../context/AuthContextType';
-import { theme } from '../styles/theme';
+import { useContext, useState, useEffect } from 'react';
+import { AuthContext } from '../../context/AuthContextType';
+import { theme } from './theme';
 import { toast } from 'react-toastify';
-import useDarkMode from '../hooks/useDarkMode';
+import useDarkMode from '../../hooks/useDarkMode';
 
 function Sidebar() {
   const authContext = useContext(AuthContext);
@@ -15,6 +15,12 @@ function Sidebar() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // Sincroniza as classes de tema no carregamento inicial
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark-theme', isDarkMode);
+    document.documentElement.classList.toggle('light-theme', !isDarkMode);
+  }, [isDarkMode]);
+
   const handleLogout = () => {
     logout();
     toast.success('Logout realizado com sucesso!');
@@ -24,6 +30,7 @@ function Sidebar() {
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
     document.documentElement.classList.toggle('dark-theme', newTheme);
+    document.documentElement.classList.toggle('light-theme', !newTheme);
     localStorage.setItem('theme', newTheme ? 'dark' : 'light');
   };
 
@@ -57,7 +64,7 @@ function Sidebar() {
         <h2 className={`${isDarkMode ? theme.sidebar.logoDark : theme.sidebar.logo} ${theme.sidebar.logoCentered}`}>ConnectSphere</h2>
         <button
           onClick={toggleTheme}
-          className={`${isDarkMode ? theme.home.themeToggleButtonDark : theme.home.themeToggleButton} absolute right-4`}
+          className={`${isDarkMode ? theme.sidebar.themeToggleButtonDark : theme.sidebar.themeToggleButton} absolute right-4`}
         >
           {isDarkMode ? (
             <svg
@@ -76,7 +83,7 @@ function Sidebar() {
             </svg>
           ) : (
             <svg
-              className="h-5 w-5 text-gray-800 hover:text-[#4b5569]"
+              className="h-5 w-5 text-gray-800 hover:text-[#4591d6]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -95,7 +102,7 @@ function Sidebar() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <nav className={`${isDarkMode ? theme.sidebar.mobileMenuDark : theme.sidebar.mobileMenu} lg:hidden !fixed !z-40`}>
+        <nav className={isDarkMode ? theme.sidebar.mobileMenuDark : theme.sidebar.mobileMenu}>
           <Link
             to="/"
             className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}
@@ -150,7 +157,7 @@ function Sidebar() {
             <h2 className={isDarkMode ? theme.sidebar.logoDark : theme.sidebar.logo}>ConnectSphere</h2>
             <button
               onClick={toggleTheme}
-              className={isDarkMode ? theme.home.themeToggleButtonDark : theme.home.themeToggleButton}
+              className={isDarkMode ? theme.sidebar.themeToggleButtonDark : theme.sidebar.themeToggleButton}
             >
               {isDarkMode ? (
                 <svg
@@ -169,7 +176,7 @@ function Sidebar() {
                 </svg>
               ) : (
                 <svg
-                  className="h-5 w-5 text-gray-800 hover:text-[#4b5569] -mt-0.25 -ml-0.5"
+                  className="h-5 w-5 text-gray-800 hover:text-[#4591d6] -mt-0.25 -ml-0.5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -212,12 +219,14 @@ function Sidebar() {
                 <Link
                   to="/login"
                   className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}
+                  onClick={() => setIsMenuOpen(false)}
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
                   className={isDarkMode ? theme.sidebar.linkDark : theme.sidebar.link}
+                  onClick={() => setIsMenuOpen(false)}
                 >
                   Registrar
                 </Link>

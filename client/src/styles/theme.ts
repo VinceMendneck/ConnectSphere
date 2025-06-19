@@ -80,6 +80,7 @@ export const theme = {
       focus:ring-2
       focus:ring-[#444444]
       resize-none
+      placeholder:text-[#6b7280] // Cor do placeholder no modo claro
     `,
     textareaDark: `
       w-full
@@ -93,6 +94,7 @@ export const theme = {
       focus:ring-2
       focus:ring-[#555555]
       resize-none
+      placeholder:text-[#9ca3af] // Cor do placeholder no modo escuro
     `,
     postFormFooter: `
       flex
@@ -109,12 +111,11 @@ export const theme = {
       text-[#9ca3af]
     `,
     postButton: `
-      primary
       cursor-pointer
       px-3
       py-1.5
       rounded-lg
-      bg-[#ffffff]
+      bg-transparent
       text-[#213547]
       border-none
       outline-none
@@ -564,7 +565,7 @@ export const theme = {
       py-2
       rounded-lg
       bg-blue-600
-      text-[#e2e8f0]
+      text-[#213547]
       font-semibold
       hover:text-[#4591d6]
       transition-colors
