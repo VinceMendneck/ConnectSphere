@@ -35,7 +35,7 @@ app.use(cors({
 
 app.use(express.json());
 
-const uploadDir = path.join(__dirname, 'Uploads');
+const uploadDir = path.join('/tmp', 'Uploads');
 const defaultAvatarPath = path.join(uploadDir, 'default-avatar.png');
 
 (async () => {
@@ -64,7 +64,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
-app.use('/api/comments', commentRoutes); // Adiciona rota de comentários
+app.use('/api/comments', commentRoutes);
 
 app.get('/test', (req, res) => {
   console.log('Rota /test acessada');
@@ -96,7 +96,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, (err) => {
   if (err) {
     console.error(`Erro ao iniciar o servidor na porta ${PORT}:`, err);
-    process.exit(1);
   }
   console.log(`Server running on port ${PORT}`);
   console.log(`Uploads disponíveis em: http://localhost:${PORT}/Uploads`);
