@@ -2,21 +2,31 @@ import { type ReactNode, useState, useEffect } from 'react';
 import { PostContext, type PostContextType } from './PostContextType';
 import { type Post, type Comment } from '../types/index';
 import api from '../services/api';
+import { toast } from 'react-toastify';
 import { AxiosError } from 'axios';
 
 export function PostProvider({ children }: { children: ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
 
+  const fetchPosts = async () => {
+    try {
+      const response = await api.get('/api/posts');
+      console.log('Posts fetched:', response.data);
+      const normalizedPosts = response.data.map((post: Post) => ({
+        ...post,
+        createdAt: new Date(post.createdAt).toISOString(),
+      }));
+      setPosts(normalizedPosts);
+      console.log('Estado posts inicializado:', normalizedPosts);
+      return normalizedPosts;
+    } catch (error) {
+      console.error('Erro ao buscar posts:', error);
+      toast.error('Erro ao atualizar lista de posts.');
+      throw error;
+    }
+  };
+
   useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const response = await api.get('/api/posts');
-        console.log('Posts fetched:', response.data);
-        setPosts(response.data);
-      } catch (error) {
-        console.error('Erro ao buscar posts:', error);
-      }
-    };
     fetchPosts();
   }, []);
 
@@ -26,31 +36,19 @@ export function PostProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       console.log('Post criado:', response.data);
-      setPosts((prevPosts) => [response.data, ...prevPosts]);
+      const newPost: Post = {
+        ...response.data,
+        createdAt: new Date(response.data.createdAt).toISOString(),
+      };
+      setPosts((prevPosts) => {
+        const updatedPosts = [newPost, ...prevPosts];
+        console.log('Estado posts atualizado (addPost):', updatedPosts);
+        return [...updatedPosts]; // Força nova referência
+      });
+      return newPost;
     } catch (error) {
       console.error('Erro ao criar post:', error);
       throw new Error('Erro ao criar post');
-    }
-  };
-
-  const toggleLike = async (postId: number): Promise<{ likes: number; likedBy: number[] }> => {
-    try {
-      const response = await api.post(`/api/posts/${postId}/like`);
-      console.log('Like toggled:', { postId, response: response.data });
-      setPosts((prevPosts) =>
-        prevPosts.map((post) =>
-          post.id === postId
-            ? { ...post, likes: response.data.likes, likedBy: response.data.likedBy }
-            : post
-        )
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Erro ao curtir/descurtir post:', error);
-      if (error instanceof AxiosError && error.response) {
-        console.log('Detalhes do erro:', error.response.data, 'Status:', error.response.status);
-      }
-      throw error; // Alterado para propagar o erro original
     }
   };
 
@@ -58,10 +56,37 @@ export function PostProvider({ children }: { children: ReactNode }) {
     try {
       await api.delete(`/api/posts/${postId}`);
       console.log('Post excluído:', postId);
-      setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
+      setPosts((prevPosts) => {
+        const updatedPosts = prevPosts.filter((post) => post.id !== postId);
+        console.log('Estado posts atualizado (deletePost):', updatedPosts);
+        return [...updatedPosts]; // Força nova referência
+      });
     } catch (error) {
       console.error('Erro ao excluir post:', error);
       throw new Error('Erro ao excluir post');
+    }
+  };
+
+  const toggleLike = async (postId: number): Promise<{ likes: number; likedBy: number[] }> => {
+    try {
+      const response = await api.post(`/api/posts/${postId}/like`);
+      console.log('Like toggled:', { postId, response: response.data });
+      setPosts((prevPosts) => {
+        const updatedPosts = prevPosts.map((post) =>
+          post.id === postId
+            ? { ...post, likes: response.data.likes, likedBy: response.data.likedBy }
+            : post
+        );
+        console.log('Estado posts atualizado (toggleLike):', updatedPosts);
+        return [...updatedPosts]; // Força nova referência
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao curtir/descurtir post:', error);
+      if (error instanceof AxiosError && error.response) {
+        console.log('Detalhes do erro:', error.response.data, 'Status:', error.response.status);
+      }
+      throw error;
     }
   };
 
@@ -71,10 +96,16 @@ export function PostProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       console.log('Post atualizado:', response.data);
-      setPosts((prevPosts) =>
-        prevPosts.map((post) => (post.id === postId ? response.data : post))
-      );
-      return response.data;
+      const updatedPost: Post = {
+        ...response.data,
+        createdAt: new Date(response.data.createdAt).toISOString(),
+      };
+      setPosts((prevPosts) => {
+        const updatedPosts = prevPosts.map((post) => (post.id === postId ? updatedPost : post));
+        console.log('Estado posts atualizado (updatePost):', updatedPosts);
+        return [...updatedPosts]; // Força nova referência
+      });
+      return updatedPost;
     } catch (error) {
       console.error('Erro ao atualizar post:', error);
       throw new Error('Erro ao atualizar post');
@@ -85,8 +116,8 @@ export function PostProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.post('/api/comments', { postId, content, parentId });
       console.log('Comentário adicionado:', response.data);
-      setPosts((prevPosts) =>
-        prevPosts.map((post) =>
+      setPosts((prevPosts) => {
+        const updatedPosts = prevPosts.map((post) =>
           post.id === postId
             ? {
                 ...post,
@@ -99,15 +130,17 @@ export function PostProvider({ children }: { children: ReactNode }) {
                   : [...(post.comments || []), response.data],
               }
             : post
-        )
-      );
+        );
+        console.log('Estado posts atualizado (addComment):', updatedPosts);
+        return [...updatedPosts]; // Força nova referência
+      });
       return response.data;
     } catch (error) {
       console.error('Erro ao adicionar comentário:', error);
       if (error instanceof AxiosError && error.response) {
         console.log('Detalhes do erro:', error.response.data, 'Status:', error.response.status);
       }
-      throw error; // Alterado para propagar o erro original
+      throw error;
     }
   };
 
@@ -115,8 +148,8 @@ export function PostProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.post(`/api/comments/${commentId}/like`);
       console.log('Like de comentário toggled:', { commentId, response: response.data });
-      setPosts((prevPosts) =>
-        prevPosts.map((post) => ({
+      setPosts((prevPosts) => {
+        const updatedPosts = prevPosts.map((post) => ({
           ...post,
           comments: post.comments?.map((comment) =>
             comment.id === commentId
@@ -138,15 +171,17 @@ export function PostProvider({ children }: { children: ReactNode }) {
                   ) || [],
                 }
           ) || [],
-        }))
-      );
+        }));
+        console.log('Estado posts atualizado (toggleCommentLike):', updatedPosts);
+        return [...updatedPosts]; // Força nova referência
+      });
       return response.data;
     } catch (error) {
       console.error('Erro ao curtir/descurtir comentário:', error);
       if (error instanceof AxiosError && error.response) {
         console.log('Detalhes do erro:', error.response.data, 'Status:', error.response.status);
       }
-      throw error; // Alterado para propagar o erro original
+      throw error;
     }
   };
 
@@ -154,8 +189,8 @@ export function PostProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.put(`/api/comments/${commentId}`, { content });
       console.log('Comentário atualizado:', response.data);
-      setPosts((prevPosts) =>
-        prevPosts.map((post) => ({
+      setPosts((prevPosts) => {
+        const updatedPosts = prevPosts.map((post) => ({
           ...post,
           comments: post.comments?.map((comment) =>
             comment.id === commentId
@@ -167,8 +202,10 @@ export function PostProvider({ children }: { children: ReactNode }) {
                   ) || [],
                 }
           ) || [],
-        }))
-      );
+        }));
+        console.log('Estado posts atualizado (updateComment):', updatedPosts);
+        return [...updatedPosts]; // Força nova referência
+      });
       return response.data;
     } catch (error) {
       console.error('Erro ao atualizar comentário:', error);
@@ -183,8 +220,8 @@ export function PostProvider({ children }: { children: ReactNode }) {
     try {
       await api.delete(`/api/comments/${commentId}`);
       console.log('Comentário excluído:', commentId);
-      setPosts((prevPosts) =>
-        prevPosts.map((post) => ({
+      setPosts((prevPosts) => {
+        const updatedPosts = prevPosts.map((post) => ({
           ...post,
           comments: post.comments
             ?.filter((comment) => comment.id !== commentId)
@@ -192,8 +229,10 @@ export function PostProvider({ children }: { children: ReactNode }) {
               ...comment,
               replies: comment.replies?.filter((reply) => reply.id !== commentId) || [],
             })) || [],
-        }))
-      );
+        }));
+        console.log('Estado posts atualizado (deleteComment):', updatedPosts);
+        return [...updatedPosts]; // Força nova referência
+      });
     } catch (error) {
       console.error('Erro ao excluir comentário:', error);
       if (error instanceof AxiosError && error.response) {
@@ -216,5 +255,5 @@ export function PostProvider({ children }: { children: ReactNode }) {
     deleteComment,
   };
 
-  return <PostContext.Provider value={value}>{children}</PostContext.Provider>;
+  return <PostContext.Provider key={posts.length} value={value}>{children}</PostContext.Provider>;
 }

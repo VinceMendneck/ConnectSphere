@@ -183,13 +183,39 @@ const deletePost = async (req, res) => {
       include: { user: true },
     });
     if (!post) {
+      console.log('Post não encontrado:', { postId: id });
       return res.status(404).json({ error: 'Post não encontrado' });
     }
     if (post.userId !== userId) {
+      console.log('Usuário não autorizado:', { userId, postUserId: post.userId });
       return res.status(403).json({ error: 'Você não tem permissão para excluir este post' });
     }
+
+    // Excluir likes dos comentários e suas replies
+    const commentIds = await prisma.comment.findMany({
+      where: { postId: parseInt(id) },
+      select: { id: true },
+    }).then(comments => comments.map(c => c.id));
+
+    if (commentIds.length > 0) {
+      await prisma.commentLike.deleteMany({
+        where: { commentId: { in: commentIds } },
+      });
+      await prisma.comment.deleteMany({
+        where: { parentId: { in: commentIds } },
+      });
+      await prisma.comment.deleteMany({
+        where: { id: { in: commentIds } },
+      });
+    }
+
+    // Excluir likes do post
     await prisma.like.deleteMany({ where: { postId: parseInt(id) } });
+
+    // Excluir o post
     await prisma.post.delete({ where: { id: parseInt(id) } });
+
+    console.log('Post excluído com sucesso:', { postId: id });
     res.status(204).send();
   } catch (error) {
     console.error('Erro ao excluir post:', error);
