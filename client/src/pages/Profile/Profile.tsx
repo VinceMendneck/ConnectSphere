@@ -122,18 +122,6 @@ function Profile() {
 
   return (
     <div className={isDarkMode ? theme.profile.containerDark : theme.profile.container}>
-      {/* Debug: Exibir avatar diretamente */}
-      {user.avatar && (
-        <div className="mb-4">
-          <p>Avatar Debug:</p>
-          <img
-            src={user.avatar}
-            alt="Debug Avatar"
-            className="w-32 h-32 rounded-full object-cover"
-            onError={() => console.error(`Erro ao carregar avatar de debug: ${user.avatar}`)}
-          />
-        </div>
-      )}
       <ProfileHeader
         user={user}
         isDarkMode={isDarkMode}
@@ -166,7 +154,7 @@ function Profile() {
             isDarkMode={isDarkMode}
             userAvatars={userAvatars}
             fetchUserAvatar={async (userId: number) => await fetchUserAvatars([userId])}
-            emptyMessage="Nenhum post vazio."
+            emptyMessage="Nenhum post para exibir."
           />
         )}
         {activeTab === 'followers' && (
