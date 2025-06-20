@@ -2,7 +2,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 
 const api = axios.create({
-  baseURL: 'https://connectsphere-backend-evg8.onrender.com',
+  baseURL: import.meta.env.VITE_API_URL || 'https://connectsphere-backend-evg8.onrender.com',
   timeout: 10000,
 });
 
