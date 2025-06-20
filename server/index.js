@@ -4,9 +4,10 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const postRoutes = require('./routes/posts');
-const commentRoutes = require('./routes/comments'); // Adiciona rota de comentários
+const commentRoutes = require('./routes/comments');
 const path = require('path');
 const fs = require('fs').promises;
+const { PrismaClient } = require('@prisma/client');
 
 dotenv.config();
 
@@ -19,7 +20,7 @@ const app = express();
 
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',')
-  : ['http://localhost:5173', 'http://localhost:4173'];
+  : ['http://localhost:5173', 'http://localhost:4173', 'https://connectsphere-frontend.onrender.com'];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -36,16 +37,10 @@ app.use(cors({
 app.use(express.json());
 
 const uploadDir = path.join(__dirname, 'Uploads');
-const defaultAvatarPath = path.join(uploadDir, 'default-avatar.png');
 
 (async () => {
   try {
     await fs.mkdir(uploadDir, { recursive: true });
-    try {
-      await fs.access(defaultAvatarPath);
-    } catch {
-      console.warn(`Aviso: default-avatar.png não encontrado em ${uploadDir}. Crie o arquivo para suportar placeholders de avatar.`);
-    }
   } catch (err) {
     console.error(`Erro ao criar diretório ${uploadDir}:`, err);
     process.exit(1);
@@ -55,6 +50,22 @@ const defaultAvatarPath = path.join(uploadDir, 'default-avatar.png');
 app.use('/uploads', express.static(uploadDir));
 
 console.log('Iniciando o servidor Express...');
+
+const prisma = new PrismaClient();
+
+(async () => {
+  try {
+    console.log('Inicializando PrismaClient...');
+    await prisma.$connect();
+    console.log('PrismaClient inicializado com sucesso');
+    // Verifica se o campo avatarData existe na tabela User
+    const columns = await prisma.$queryRaw`SELECT column_name FROM information_schema.columns WHERE table_name = 'User' AND column_name = 'avatarData';`;
+    console.log('Campo avatarData existe na tabela User:', columns.length > 0 ? 'Sim' : 'Não');
+  } catch (error) {
+    console.error('Erro ao inicializar PrismaClient:', error);
+    process.exit(1);
+  }
+})();
 
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} from ${req.headers.origin || 'unknown'}`);
@@ -76,7 +87,7 @@ app.use((err, req, res, next) => {
 
   if (err.name === 'MulterError') {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'Arquivo muito grande. Máximo 15MB.' });
+      return res.status(400).json({ error: 'Arquivo muito grande. Máximo 5MB.' });
     }
     return res.status(400).json({ error: err.message });
   }
@@ -99,6 +110,5 @@ app.listen(PORT, (err) => {
     process.exit(1);
   }
   console.log(`Server running on port ${PORT}`);
-  console.log(`Uploads disponíveis em: http://localhost:${PORT}/Uploads`);
   console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
 });
