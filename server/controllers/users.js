@@ -6,13 +6,8 @@ const jwt = require('jsonwebtoken');
 
 const prisma = new PrismaClient();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../Uploads');
-    fs.mkdir(uploadDir, { recursive: true }).then(() => cb(null, uploadDir)).catch(err => cb(err));
-  },
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
-});
+// Configuração do Multer para armazenar em memória (não no disco)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -57,7 +52,7 @@ const getUser = async (req, res) => {
       username: user.username,
       email: user.email,
       bio: user.bio,
-      avatar: user.avatar ? `${process.env.BACKEND_URL || 'http://localhost:5000'}/${user.avatar}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/Uploads/default-avatar.png`,
+      avatar: user.avatarData ? `data:image/jpeg;base64,${user.avatarData.toString('base64')}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/Uploads/default-avatar.png`,
       posts: user.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
@@ -87,22 +82,19 @@ const updateUser = async (req, res) => {
       if (bio.length === 0) bio = null;
     }
 
-    let avatarPath = user.avatar || 'Uploads/default-avatar.png';
+    let avatarData = user.avatarData;
 
     if (req.file) {
-      avatarPath = path.join('Uploads', req.file.filename).replace(/\\/g, '/');
-      console.log('Novo avatar salvo em:', avatarPath);
-      if (user.avatar && user.avatar !== 'Uploads/default-avatar.png') {
-        const oldAvatarPath = path.join(__dirname, '../', user.avatar);
-        await fs.unlink(oldAvatarPath).catch(err => console.warn('Erro ao remover avatar antigo:', err));
-      }
+      avatarData = req.file.buffer; // Armazena o buffer da imagem
+      console.log('Novo avatar recebido, tamanho:', avatarData.length);
     }
 
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
       data: {
         bio: bio || user.bio,
-        avatar: avatarPath,
+        avatarData: req.file ? avatarData : user.avatarData, // Atualiza apenas se novo arquivo for enviado
+        avatar: null, // Limpa o campo avatar, já que usamos avatarData
       },
       include: { posts: true },
     });
@@ -112,7 +104,7 @@ const updateUser = async (req, res) => {
       username: updatedUser.username,
       email: updatedUser.email,
       bio: updatedUser.bio,
-      avatar: updatedUser.avatar ? `${process.env.BACKEND_URL || 'http://localhost:5000'}/${updatedUser.avatar}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/Uploads/default-avatar.png`,
+      avatar: updatedUser.avatarData ? `data:image/jpeg;base64,${updatedUser.avatarData.toString('base64')}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/Uploads/default-avatar.png`,
       posts: updatedUser.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
