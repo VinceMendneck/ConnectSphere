@@ -4,7 +4,7 @@ import { type Post, type Comment } from '../types/index';
 export interface PostContextType {
   posts: Post[];
   setPosts: React.Dispatch<React.SetStateAction<Post[]>>;
-  addPost: (formData: FormData) => Promise<void>;
+  addPost: (formData: FormData) => Promise<Post>;
   toggleLike: (postId: number) => Promise<{ likes: number; likedBy: number[] }>;
   deletePost: (postId: number) => Promise<void>;
   updatePost: (postId: number, formData: FormData) => Promise<Post>;

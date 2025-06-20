@@ -65,4 +65,31 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login };
+const getCurrentUser = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        bio: true,
+        avatar: true,
+      },
+    });
+    if (!user) {
+      console.log('Usuário não encontrado:', { userId: req.user.id });
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    console.log('Dados do usuário retornados:', user);
+    res.json({
+      ...user,
+      avatar: user.avatar ? `http://localhost:5000/${user.avatar}` : null,
+    });
+  } catch (error) {
+    console.error('Erro ao buscar usuário:', error);
+    res.status(500).json({ error: 'Erro ao buscar usuário' });
+  }
+};
+
+module.exports = { register, login, getCurrentUser };

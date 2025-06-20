@@ -2,17 +2,20 @@
 import { createContext } from 'react';
 
 export interface User {
-  id: number; // Alinhado com ../types/index.ts
+  id: number;
   username: string;
-  email: string; // Mantido para compatibilidade com login
-  password: string; // Mantido para compatibilidade
+  email: string;
+  password?: string; // Opcional, já que não é retornado em todas as requisições
+  bio?: string; // Adicionado para compatibilidade com /api/users/:id
+  avatar?: string;
 }
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => void;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (username: string, email: string, password: string) => void;
+  register: (username: string, email: string, password: string) => Promise<boolean>;
+  isLoading: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);

@@ -41,6 +41,7 @@ function PostForm({ isDarkMode }: PostFormProps) {
       if (image) formData.append('images', image);
     });
     try {
+      console.log('Disparando addPost com formData:', Array.from(formData.entries()));
       await addPost(formData);
       setContent('');
       setImages([]);
