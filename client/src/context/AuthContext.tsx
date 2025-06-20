@@ -71,8 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('Tentando registro com:', { username, email });
     const response = await api.post('/api/auth/register', { username, email, password });
     console.log('Resposta do registro:', response.data);
-    const { id } = response.data;
-    localStorage.setItem('token', response.data.token || '');
+    const { id, token } = response.data;
+    if (!token) {
+      throw new Error('Token não retornado pelo servidor');
+    }
+    localStorage.setItem('token', token);
     const userResponse = await api.get(`/api/users/${id}`);
     setUser(userResponse.data);
     console.log('Registro bem-sucedido:', userResponse.data);

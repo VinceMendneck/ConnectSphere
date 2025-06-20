@@ -26,8 +26,13 @@ const register = async (req, res) => {
         password: hashedPassword,
       },
     });
+    const token = jwt.sign(
+      { userId: user.id, username: user.username },
+      process.env.JWT_SECRET || 'your_jwt_secret',
+      { expiresIn: '1h' }
+    );
     console.log('Usuário registrado com sucesso:', { id: user.id, username: user.username });
-    res.status(201).json({ id: user.id, username: user.username, email: user.email });
+    res.status(201).json({ id: user.id, username: user.username, email: user.email, token });
   } catch (error) {
     console.error('Erro ao registrar usuário:', error);
     if (error.code === 'P2002') {
