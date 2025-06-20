@@ -6,12 +6,12 @@ const jwt = require('jsonwebtoken');
 
 const prisma = new PrismaClient();
 
-// Configuração do Multer para armazenar em memória (não no disco)
+// Configuração do Multer para armazenar em memória
 const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+  limits: { fileSize: 5 * 1024 * 1024 }, // Reduzido para 5MB
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -52,7 +52,7 @@ const getUser = async (req, res) => {
       username: user.username,
       email: user.email,
       bio: user.bio,
-      avatar: user.avatarData ? `data:image/jpeg;base64,${user.avatarData.toString('base64')}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/Uploads/default-avatar.png`,
+      avatar: user.avatarData ? `data:image/jpeg;base64,${user.avatarData.toString('base64')}` : null, // Remove default-avatar.png
       posts: user.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
@@ -85,7 +85,7 @@ const updateUser = async (req, res) => {
     let avatarData = user.avatarData;
 
     if (req.file) {
-      avatarData = req.file.buffer; // Armazena o buffer da imagem
+      avatarData = req.file.buffer;
       console.log('Novo avatar recebido, tamanho:', avatarData.length);
     }
 
@@ -93,8 +93,8 @@ const updateUser = async (req, res) => {
       where: { id: parseInt(id) },
       data: {
         bio: bio || user.bio,
-        avatarData: req.file ? avatarData : user.avatarData, // Atualiza apenas se novo arquivo for enviado
-        avatar: null, // Limpa o campo avatar, já que usamos avatarData
+        avatarData: req.file ? avatarData : user.avatarData,
+        avatar: null,
       },
       include: { posts: true },
     });
@@ -104,7 +104,7 @@ const updateUser = async (req, res) => {
       username: updatedUser.username,
       email: updatedUser.email,
       bio: updatedUser.bio,
-      avatar: updatedUser.avatarData ? `data:image/jpeg;base64,${updatedUser.avatarData.toString('base64')}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/Uploads/default-avatar.png`,
+      avatar: updatedUser.avatarData ? `data:image/jpeg;base64,${updatedUser.avatarData.toString('base64')}` : null, // Remove default-avatar.png
       posts: updatedUser.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
@@ -169,7 +169,7 @@ const getFollowing = async (req, res) => {
 const handleMulterError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'Arquivo muito grande. Máximo 15MB.' });
+      return res.status(400).json({ error: 'Arquivo muito grande. Máximo 5MB.' });
     }
     return res.status(400).json({ error: err.message });
   }
