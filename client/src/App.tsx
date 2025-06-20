@@ -3,7 +3,7 @@ import Home from './pages/Home/Home';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import HashtagPage from './pages/HashtagPage/HashtagPage';
-import Profile from './pages/Profile/Profile';
+import Profile from './pages/Profile';
 import Layout from './Layout';
 import { AuthProvider } from './context/AuthContext';
 import { PostProvider } from './context/PostContext';
