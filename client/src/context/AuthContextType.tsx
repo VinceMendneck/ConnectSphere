@@ -5,8 +5,8 @@ export interface User {
   id: number;
   username: string;
   email: string;
-  password?: string; // Opcional, já que não é retornado em todas as requisições
-  bio?: string; // Adicionado para compatibilidade com /api/users/:id
+  password?: string;
+  bio?: string;
   avatar?: string;
 }
 
