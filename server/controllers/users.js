@@ -57,7 +57,7 @@ const getUser = async (req, res) => {
       username: user.username,
       email: user.email,
       bio: user.bio,
-      avatar: user.avatar ? `http://localhost:5000/${user.avatar}` : 'http://localhost:5000/uploads/default-avatar.png',
+      avatar: user.avatar ? `${process.env.BACKEND_URL || 'http://localhost:5000'}/${user.avatar}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/Uploads/default-avatar.png`,
       posts: user.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
@@ -82,7 +82,6 @@ const updateUser = async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
     if (user.id !== userId) return res.status(403).json({ error: 'Permissão negada' });
 
-    // Validação do campo bio
     if (bio) {
       bio = bio.trim().slice(0, 160);
       if (bio.length === 0) bio = null;
@@ -113,7 +112,7 @@ const updateUser = async (req, res) => {
       username: updatedUser.username,
       email: updatedUser.email,
       bio: updatedUser.bio,
-      avatar: updatedUser.avatar ? `${process.env.BACKEND_URL || 'http://localhost:5000'}/${updatedUser.avatar}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/default-avatar.png`,
+      avatar: updatedUser.avatar ? `${process.env.BACKEND_URL || 'http://localhost:5000'}/${updatedUser.avatar}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/Uploads/default-avatar.png`,
       posts: updatedUser.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
