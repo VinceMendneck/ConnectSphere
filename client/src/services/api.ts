@@ -2,8 +2,8 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000',
-  timeout: 10000, // Adicionado timeout de 10 segundos
+  baseURL: 'https://connectsphere-backend-evg8.onrender.com',
+  timeout: 10000,
 });
 
 api.interceptors.request.use(
