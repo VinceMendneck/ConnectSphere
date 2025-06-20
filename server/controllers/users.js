@@ -89,12 +89,17 @@ const updateUser = async (req, res) => {
       console.log('Novo avatar recebido, tamanho:', avatarData.length);
       // Log para verificar os primeiros bytes do buffer
       console.log('Primeiros 10 bytes do buffer:', avatarData.slice(0, 10).toString('hex'));
+      // Verifica se é uma imagem JPEG válida
+      const isJpeg = avatarData.slice(0, 3).toString('hex') === 'ffd8ff';
+      console.log('É uma imagem JPEG válida?', isJpeg);
+      // Salva o buffer como arquivo temporário para teste
+      const tempFilePath = path.join(__dirname, '../temp', `avatar-${Date.now()}.jpg`);
+      await fs.mkdir(path.dirname(tempFilePath), { recursive: true });
+      await fs.writeFile(tempFilePath, avatarData);
+      console.log('Arquivo temporário salvo em:', tempFilePath);
       // Log para verificar o tamanho da string base64
       const base64String = avatarData.toString('base64');
       console.log('Tamanho da string base64:', base64String.length);
-      // Verifica se é uma imagem JPEG válida (começa com FF D8 FF)
-      const isJpeg = avatarData.slice(0, 3).toString('hex') === 'ffd8ff';
-      console.log('É uma imagem JPEG válida?', isJpeg);
     }
 
     const updatedUser = await prisma.user.update({
