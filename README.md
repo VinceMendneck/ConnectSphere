@@ -175,5 +175,3 @@ Abaixo está a estrutura do projeto, com os principais diretórios e arquivos:
 
 3. **Acessar a aplicação:**  
    Abra `http://localhost:5173` no navegador para usar o ConnectSphere.
-
----
