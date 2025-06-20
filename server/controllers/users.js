@@ -87,14 +87,6 @@ const updateUser = async (req, res) => {
     if (req.file) {
       avatarData = req.file.buffer;
       console.log('Novo avatar recebido, tamanho:', avatarData.length);
-      // Log para verificar os primeiros bytes do buffer
-      console.log('Primeiros 10 bytes do buffer:', avatarData.slice(0, 10).toString('hex'));
-      // Log para verificar o tamanho da string base64
-      const base64String = avatarData.toString('base64');
-      console.log('Tamanho da string base64:', base64String.length);
-      // Verifica se é uma imagem JPEG válida (começa com FF D8 FF)
-      const isJpeg = avatarData.slice(0, 3).toString('hex') === 'ffd8ff';
-      console.log('É uma imagem JPEG válida?', isJpeg);
     }
 
     const updatedUser = await prisma.user.update({
@@ -107,20 +99,16 @@ const updateUser = async (req, res) => {
       include: { posts: true },
     });
 
-    const response = {
+    res.json({
       id: updatedUser.id,
       username: updatedUser.username,
       email: updatedUser.email,
       bio: updatedUser.bio,
-      avatar: updatedUser.avatarData ? `data:image/jpeg;base64,${updatedUser.avatarData.toString('base64')}` : null,
+      avatar: updatedUser.avatarData ? `data:image/jpeg;base64,${updatedUser.avatarData.toString('base64')}` : null, // Remove default-avatar.png
       posts: updatedUser.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
-    };
-
-    // Log para verificar o tamanho da URL de dados retornada
-    console.log('Tamanho da URL de dados retornada:', response.avatar ? response.avatar.length : 'Nulo');
-    res.json(response);
+    });
   } catch (error) {
     console.error('Erro ao atualizar perfil:', error);
     res.status(500).json({ error: error.message || 'Erro ao atualizar perfil' });

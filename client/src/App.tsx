@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import Home from './pages/Home';
 import Register from './pages/Register';
 import Login from './pages/Login';
-import HashtagPage from './pages/HashtagPage';
+import HashtagPage from './pages/HashtagPage/HashtagPage';
 import Profile from './pages/Profile';
 import Layout from './Layout';
 import { AuthProvider } from './context/AuthContext';
