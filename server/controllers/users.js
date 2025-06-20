@@ -85,15 +85,15 @@ const updateUser = async (req, res) => {
     // Validação do campo bio
     if (bio) {
       bio = bio.trim().slice(0, 160);
-      if (bio.length === 0) bio = null; // Evita bio vazia
+      if (bio.length === 0) bio = null;
     }
 
-    let avatarPath = user.avatar || 'uploads/default-avatar.png';
+    let avatarPath = user.avatar || 'Uploads/default-avatar.png';
 
     if (req.file) {
-      avatarPath = path.join('uploads', req.file.filename).replace(/\\/g, '/');
+      avatarPath = path.join('Uploads', req.file.filename).replace(/\\/g, '/');
       console.log('Novo avatar salvo em:', avatarPath);
-      if (user.avatar && user.avatar !== 'uploads/default-avatar.png') {
+      if (user.avatar && user.avatar !== 'Uploads/default-avatar.png') {
         const oldAvatarPath = path.join(__dirname, '../', user.avatar);
         await fs.unlink(oldAvatarPath).catch(err => console.warn('Erro ao remover avatar antigo:', err));
       }
@@ -113,7 +113,7 @@ const updateUser = async (req, res) => {
       username: updatedUser.username,
       email: updatedUser.email,
       bio: updatedUser.bio,
-      avatar: updatedUser.avatar ? `http://localhost:5000/${updatedUser.avatar}` : 'http://localhost:5000/uploads/default-avatar.png',
+      avatar: updatedUser.avatar ? `${process.env.BACKEND_URL || 'http://localhost:5000'}/${updatedUser.avatar}` : `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/default-avatar.png`,
       posts: updatedUser.posts,
       followers: await prisma.follows.count({ where: { followingId: parseInt(id) } }),
       following: await prisma.follows.count({ where: { followerId: parseInt(id) } }),
