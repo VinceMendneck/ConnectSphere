@@ -19,7 +19,7 @@ const app = express();
 
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',')
-  : ['http://localhost:5173'];
+  : ['http://localhost:5173', 'http://localhost:4173'];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -64,7 +64,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
-app.use('/api/comments', commentRoutes); // Adiciona rota de comentários
+app.use('/api/comments', commentRoutes);
 
 app.get('/test', (req, res) => {
   console.log('Rota /test acessada');
