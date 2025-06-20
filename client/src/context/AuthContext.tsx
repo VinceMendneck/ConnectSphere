@@ -67,25 +67,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (username: string, email: string, password: string): Promise<boolean> => {
-    try {
-      console.log('Tentando registro com:', { username, email });
-      const response = await api.post('/api/auth/register', { username, email, password });
-      const { token, userId } = response.data;
-      localStorage.setItem('token', token);
-      const userResponse = await api.get(`/api/users/${userId}`);
-      setUser(userResponse.data);
-      console.log('Registro bem-sucedido:', userResponse.data);
-      return true;
-    } catch (error) {
-      const axiosError = error as AxiosError<ApiError>;
-      console.error('Erro de registro:', axiosError.response?.data || axiosError.message);
-      const errorMsg = Array.isArray(axiosError.response?.data?.error)
-        ? axiosError.response.data.error.map(e => e.message).join(', ')
-        : axiosError.response?.data?.error || 'Erro ao registrar usuário';
-      toast.error(errorMsg);
-      throw new Error(errorMsg);
-    }
-  };
+  try {
+    console.log('Tentando registro com:', { username, email });
+    const response = await api.post('/api/auth/register', { username, email, password });
+    console.log('Resposta do registro:', response.data);
+    const { id } = response.data;
+    localStorage.setItem('token', response.data.token || '');
+    const userResponse = await api.get(`/api/users/${id}`);
+    setUser(userResponse.data);
+    console.log('Registro bem-sucedido:', userResponse.data);
+    return true;
+  } catch (error) {
+    const axiosError = error as AxiosError<ApiError>;
+    console.error('Erro de registro:', axiosError.response?.data || axiosError.message);
+    const errorMsg = Array.isArray(axiosError.response?.data?.error)
+      ? axiosError.response.data.error.map(e => e.message).join(', ')
+      : axiosError.response?.data?.error || 'Erro ao registrar usuário';
+    toast.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+};
 
   const value: AuthContextType = {
     user,

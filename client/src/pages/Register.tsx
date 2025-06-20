@@ -28,32 +28,32 @@ function Register() {
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError([]);
-    if (!username || !email || !password) {
-      setError(['Todos os campos são obrigatórios']);
-      toast.error('Todos os campos são obrigatórios');
-      return;
+  e.preventDefault();
+  setError([]);
+  if (!username || !email || !password) {
+    setError(['Todos os campos são obrigatórios']);
+    toast.error('Todos os campos são obrigatórios');
+    return;
+  }
+  if (password.length < 6) {
+    setError(['A senha deve ter pelo menos 6 caracteres']);
+    toast.error('A senha deve ter pelo menos 6 caracteres');
+    return;
+  }
+  try {
+    await register(username, email, password);
+    navigate('/home'); // Redireciona para /home
+    toast.success('Registro efetuado com sucesso!');
+  } catch (err: unknown) {
+    let errorMessage = 'Erro ao registrar';
+    if (err instanceof Error) {
+      errorMessage = err.message;
     }
-    if (password.length < 6) {
-      setError(['A senha deve ter pelo menos 6 caracteres']);
-      toast.error('A senha deve ter pelo menos 6 caracteres');
-      return;
-    }
-    try {
-      await register(username, email, password);
-      navigate('/login');
-      toast.success('Registro efetuado com sucesso!');
-    } catch (err: unknown) {
-      let errorMessage = 'Erro ao registrar';
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      }
-      setError([errorMessage]);
-      toast.error(errorMessage);
-      console.error('Erro de registro:', err);
-    }
-  };
+    setError([errorMessage]);
+    toast.error(errorMessage);
+    console.error('Erro de registro:', err);
+  }
+};
 
   return (
     <div className={isDarkMode ? theme.auth.containerDark : theme.auth.container}>
